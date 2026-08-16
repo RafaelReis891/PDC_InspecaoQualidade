@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1769aa">
+    <title>Controle de Qualidade</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Exportação Excel e PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+
+<body>
+    <div class="app">
+        <header class="header">
+            <h1 id="headerTitle" class="header-title">Controle de Qualidade</h1>
+            <p id="headerSubtitle" class="header-subtitle">Checklist de inspeção</p>
+        </header>
+
+        <section class="card inspection-card">
+            <div class="inspection-data">
+                <div class="field">
+                    <label for="responsavel">Responsável</label>
+                    <input id="responsavel" type="text" autocomplete="name" placeholder="Nome do responsável">
+                </div>
+                <div class="field">
+                    <label for="lote">Produto / Lote</label>
+                    <input id="lote" type="text" placeholder="Ex.: Lote 001">
+                </div>
+            </div>
+        </section>
+
+        <section class="card progress-card">
+            <div class="progress-header">
+                <span>Progresso da inspeção</span>
+                <span id="progressText">0 / 0</span>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="saveStatus" class="save-status">Rascunho não iniciado</div>
+        </section>
+
+        <div id="warning" class="warning" role="alert"></div>
+
+        <main id="questions"></main>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="bottom-buttons">
+            <button id="pdfButton" class="main-button pdf-button" type="button" onclick="generatePDF()">
+                📄 Gerar PDF
+            </button>
+            <button id="excelButton" class="main-button excel-button" type="button" onclick="finishInspection()" disabled>
+                📊 Finalizar / Excel
+            </button>
+        </div>
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="app.js"></script>
+</body>
+
+
+<nav class="top-menu">
+
+    <div class="top-menu-content">
+
+        <div class="menu-brand">
+            <span class="menu-icon">☰</span>
+            <span>Controle de Qualidade</span>
+        </div>
+
+
+        <div class="menu-actions">
+
+            <button
+                type="button"
+                class="menu-button save-button"
+                onclick="exportInspection()">
+
+                <span>💾</span>
+                <span>Salvar</span>
+
+            </button>
+
+
+            <button
+                type="button"
+                class="menu-button load-button"
+                onclick="document.getElementById('inspectionFile').click()">
+
+                <span>📂</span>
+                <span>Carregar</span>
+
+            </button>
+
+
+            <button
+                type="button"
+                class="menu-button new-button"
+                onclick="newInspection()">
+
+                <span>🗑</span>
+                <span>Nova</span>
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <input
+        id="inspectionFile"
+        type="file"
+        accept=".json,application/json"
+        style="display:none"
+        onchange="importInspection(this)"
+    >
+
+</nav>
+
+</html>

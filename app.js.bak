@@ -1,0 +1,754 @@
+let config = null;
+let checklist = [];
+let saveTimer = null;
+let restoringState = false;
+
+const elements = {};
+
+async function initialize() {
+    try {
+        showLoading();
+
+        await openDatabase();
+
+        const response = await fetch("config/checklist.json", { cache: "no-store" });
+        if (!response.ok) {
+            throw new Error("Não foi possível carregar config/checklist.json.");
+        }
+
+        config = await response.json();
+
+        if (!config.nome || !Array.isArray(config.perguntas)) {
+            throw new Error("O arquivo checklist.json está inválido.");
+        }
+
+        checklist = config.perguntas.map(() => ({
+            answer: null,
+            photo: null,
+            photoName: null
+        }));
+
+        cacheElements();
+
+        elements.headerTitle.textContent = config.nome;
+        elements.headerSubtitle.textContent = config.descricao || "Checklist de inspeção";
+
+        renderQuestions();
+        bindFields();
+
+        await restoreState();
+        updateProgress();
+        updateSaveStatus("Rascunho carregado");
+    } catch (error) {
+        console.error(error);
+        document.body.innerHTML = `
+            <div style="padding:30px;font-family:Arial,sans-serif">
+                <h2>Erro ao iniciar aplicação</h2>
+                <p>${escapeHtml(error.message)}</p>
+                <p>Se estiver abrindo o arquivo diretamente, use um servidor local. Veja as instruções no README.</p>
+            </div>
+        `;
+    }
+}
+
+function showLoading() {
+    const container = document.getElementById("questions");
+    if (container) container.innerHTML = '<div class="card loading">Carregando checklist...</div>';
+}
+
+function cacheElements() {
+    elements.headerTitle = document.getElementById("headerTitle");
+    elements.headerSubtitle = document.getElementById("headerSubtitle");
+    elements.questions = document.getElementById("questions");
+    elements.responsavel = document.getElementById("responsavel");
+    elements.lote = document.getElementById("lote");
+    elements.progressText = document.getElementById("progressText");
+    elements.progressFill = document.getElementById("progressFill");
+    elements.warning = document.getElementById("warning");
+    elements.excelButton = document.getElementById("excelButton");
+    elements.saveStatus = document.getElementById("saveStatus");
+}
+
+function renderQuestions() {
+    elements.questions.innerHTML = "";
+
+    config.perguntas.forEach((question, index) => {
+        const element = document.createElement("section");
+        element.className = "card question";
+
+        const requiredText = question.fotoObrigatoria
+            ? '<div class="required-photo">Foto obrigatória</div>'
+            : '';
+
+        const photoLabel = question.fotoObrigatoria
+            ? "📷 Adicionar foto *"
+            : "📷 Adicionar foto";
+
+        element.innerHTML = `
+            <div class="question-top">
+                <div class="question-number">${index + 1}</div>
+                <div class="question-text">
+                    ${escapeHtml(question.texto)}
+                    ${requiredText}
+                </div>
+            </div>
+
+            <div class="answer-buttons">
+                <button id="ok-${index}" class="answer-button answer-ok" type="button" onclick="setAnswer(${index}, 'OK')">
+                    ✓ OK
+                </button>
+                <button id="notok-${index}" class="answer-button answer-not-ok" type="button" onclick="setAnswer(${index}, 'NÃO OK')">
+                    ✕ NÃO OK
+                </button>
+            </div>
+
+            <div class="photo-area">
+                <label class="photo-button">
+                    ${photoLabel}
+                    <input
+                        class="photo-input"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onchange="handlePhoto(${index}, this)"
+                    >
+                </label>
+                <span id="photo-name-${index}" class="photo-name"></span>
+            </div>
+
+            <div id="preview-${index}" class="photo-preview">
+                <img id="image-${index}" alt="Foto da inspeção">
+                <button class="remove-photo" type="button" aria-label="Remover foto" onclick="removePhoto(${index})">×</button>
+            </div>
+        `;
+
+        elements.questions.appendChild(element);
+    });
+}
+
+function bindFields() {
+    elements.responsavel.addEventListener("input", scheduleSave);
+    elements.lote.addEventListener("input", scheduleSave);
+}
+
+function setAnswer(index, answer) {
+    checklist[index].answer = answer;
+
+    document.getElementById(`ok-${index}`).classList.toggle("active", answer === "OK");
+    document.getElementById(`notok-${index}`).classList.toggle("active", answer === "NÃO OK");
+
+    hideWarning();
+    updateProgress();
+    scheduleSave();
+}
+
+function handlePhoto(index, input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+        showWarning("O arquivo selecionado não é uma imagem.");
+        input.value = "";
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = event => {
+        checklist[index].photo = event.target.result;
+        checklist[index].photoName = file.name;
+
+        document.getElementById(`image-${index}`).src = event.target.result;
+        document.getElementById(`preview-${index}`).style.display = "block";
+        document.getElementById(`photo-name-${index}`).textContent = file.name;
+
+        hideWarning();
+        scheduleSave();
+    };
+
+    reader.onerror = () => showWarning("Não foi possível carregar a foto.");
+    reader.readAsDataURL(file);
+}
+
+function removePhoto(index) {
+    checklist[index].photo = null;
+    checklist[index].photoName = null;
+
+    document.getElementById(`preview-${index}`).style.display = "none";
+    document.getElementById(`image-${index}`).removeAttribute("src");
+    document.getElementById(`photo-name-${index}`).textContent = "";
+
+    scheduleSave();
+}
+
+function updateProgress() {
+    if (!checklist.length) return;
+
+    const completed = checklist.filter(item => item.answer !== null).length;
+    const total = checklist.length;
+    const percentage = (completed / total) * 100;
+
+    elements.progressText.textContent = `${completed} / ${total}`;
+    elements.progressFill.style.width = `${percentage}%`;
+    elements.excelButton.disabled = completed !== total;
+}
+
+function validateChecklist() {
+    const incomplete = checklist.findIndex(item => item.answer === null);
+
+    if (incomplete !== -1) {
+        showWarning(`A pergunta ${incomplete + 1} ainda não foi respondida.`);
+        scrollToQuestion(incomplete);
+        return false;
+    }
+
+    for (let i = 0; i < config.perguntas.length; i++) {
+        const question = config.perguntas[i];
+
+        if (question.fotoObrigatoria && !checklist[i].photo) {
+            showWarning(`A pergunta ${i + 1} exige uma foto.`);
+            scrollToQuestion(i);
+            return false;
+        }
+    }
+
+    hideWarning();
+    return true;
+}
+
+function scrollToQuestion(index) {
+    const button = document.getElementById(`ok-${index}`);
+    if (button) {
+        button.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+}
+
+function showWarning(message) {
+    elements.warning.textContent = message;
+    elements.warning.style.display = "block";
+}
+
+function hideWarning() {
+    elements.warning.style.display = "none";
+}
+
+function scheduleSave() {
+    if (restoringState) return;
+
+    updateSaveStatus("Salvando...");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveCurrentState(), 350);
+}
+
+async function saveCurrentState() {
+    if (!config || restoringState) return;
+
+    const state = {
+        version: 1,
+        savedAt: new Date().toISOString(),
+        checklistName: config.nome,
+        responsavel: elements.responsavel.value,
+        lote: elements.lote.value,
+        checklist: checklist.map(item => ({
+            answer: item.answer,
+            photo: item.photo,
+            photoName: item.photoName
+        }))
+    };
+
+    try {
+        await saveInspectionState(state);
+        updateSaveStatus(`Salvo automaticamente às ${new Date().toLocaleTimeString("pt-BR")}`);
+    } catch (error) {
+        console.error("Erro ao salvar inspeção:", error);
+        updateSaveStatus("Não foi possível salvar localmente");
+    }
+}
+
+async function restoreState() {
+    const saved = await loadInspectionState();
+
+    if (!saved) {
+        updateSaveStatus("Novo checklist");
+        return;
+    }
+
+    if (saved.checklistName !== config.nome) {
+        updateSaveStatus("Novo checklist");
+        return;
+    }
+
+    restoringState = true;
+
+    try {
+        elements.responsavel.value = saved.responsavel || "";
+        elements.lote.value = saved.lote || "";
+
+        if (Array.isArray(saved.checklist)) {
+            saved.checklist.forEach((savedItem, index) => {
+                if (!checklist[index]) return;
+
+                checklist[index].answer = savedItem.answer || null;
+                checklist[index].photo = savedItem.photo || null;
+                checklist[index].photoName = savedItem.photoName || null;
+            });
+        }
+
+        checklist.forEach((item, index) => {
+            document.getElementById(`ok-${index}`).classList.toggle("active", item.answer === "OK");
+            document.getElementById(`notok-${index}`).classList.toggle("active", item.answer === "NÃO OK");
+
+            if (item.photo) {
+                document.getElementById(`image-${index}`).src = item.photo;
+                document.getElementById(`preview-${index}`).style.display = "block";
+                document.getElementById(`photo-name-${index}`).textContent = item.photoName || "Foto restaurada";
+            }
+        });
+    } finally {
+        restoringState = false;
+    }
+}
+
+function updateSaveStatus(text) {
+    if (elements.saveStatus) elements.saveStatus.textContent = text;
+}
+
+function getInspectionData() {
+    return {
+        responsavel: elements.responsavel.value.trim(),
+        lote: elements.lote.value.trim(),
+        date: new Date().toLocaleString("pt-BR"),
+        checklist: config.perguntas.map((question, index) => ({
+            id: question.id,
+            pergunta: question.texto,
+            resultado: checklist[index].answer,
+            foto: checklist[index].photo,
+            fotoNome: checklist[index].photoName
+        }))
+    };
+}
+
+function generateExcel() {
+    if (!validateChecklist()) return;
+
+    if (typeof XLSX === "undefined") {
+        showWarning("A biblioteca de Excel não foi carregada. Verifique sua conexão com a internet.");
+        return;
+    }
+
+    const data = getInspectionData();
+
+    const rows = [
+        ["CONTROLE DE QUALIDADE"],
+        [],
+        ["Checklist", config.nome],
+        ["Responsável", data.responsavel],
+        ["Produto / Lote", data.lote],
+        ["Data", data.date],
+        [],
+        ["Nº", "Pergunta", "Resultado", "Foto", "Foto obrigatória"]
+    ];
+
+    data.checklist.forEach((item, index) => {
+        rows.push([
+            index + 1,
+            item.pergunta,
+            item.resultado,
+            item.foto ? "SIM" : "NÃO",
+            config.perguntas[index].fotoObrigatoria ? "SIM" : "NÃO"
+        ]);
+    });
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    worksheet["!cols"] = [
+        { wch: 6 },
+        { wch: 70 },
+        { wch: 15 },
+        { wch: 10 },
+        { wch: 18 }
+    ];
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Checklist");
+    XLSX.writeFile(workbook, "controle_qualidade.xlsx");
+}
+
+async function generatePDF() {
+
+    if (!validateChecklist()) return;
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        showWarning("A biblioteca de PDF não foi carregada. Verifique sua conexão com a internet.");
+        return;
+    }
+
+    const data = getInspectionData();
+    const { jsPDF } = window.jspdf;
+
+    const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - margin * 2;
+
+    const colors = {
+        dark: [28, 35, 42],
+        gray: [105, 112, 120],
+        light: [247, 248, 249],
+        border: [215, 219, 223],
+        white: [255, 255, 255],
+        green: [31, 132, 88],
+        red: [190, 55, 55],
+        orange: [211, 132, 32]
+    };
+
+    let y = 15;
+    let logoData = null;
+
+    function fill(color) { pdf.setFillColor(...color); }
+    function textColor(color) { pdf.setTextColor(...color); }
+    function drawColor(color) { pdf.setDrawColor(...color); }
+
+    function roundedBox(x, top, width, height, color, radius = 1.5) {
+        fill(color);
+        drawColor(color);
+        pdf.roundedRect(x, top, width, height, radius, radius, "F");
+    }
+
+    function footer(pageNumber) {
+        const footerY = pageHeight - 8;
+
+        drawColor(colors.border);
+        pdf.setLineWidth(0.25);
+        pdf.line(margin, footerY - 3, pageWidth - margin, footerY - 3);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7.5);
+        textColor(colors.gray);
+
+        pdf.text("Relatório de Controle de Qualidade", margin, footerY);
+        pdf.text(`Página ${pageNumber}`, pageWidth - margin, footerY, { align: "right" });
+    }
+
+    function ensureSpace(height) {
+        if (y + height > pageHeight - 17) {
+            footer(pdf.getNumberOfPages());
+            pdf.addPage();
+            y = 16;
+        }
+    }
+
+    /* Logo: src/logo.png */
+    try {
+        logoData = await loadImageAsDataURL("src/logo.png");
+    } catch (error) {
+        console.warn("Logo não encontrado em src/logo.png. O PDF será gerado sem logo.");
+    }
+
+    /* ========================================================
+       CABEÇALHO
+       ======================================================== */
+
+    roundedBox(margin, y, contentWidth, 30, colors.dark, 2);
+
+    if (logoData) {
+        try {
+            pdf.addImage(logoData, "PNG", margin + 5, y + 5, 25, 20, undefined, "FAST");
+        } catch (error) {
+            console.warn("Não foi possível inserir o logo.", error);
+        }
+    }
+
+    const titleX = logoData ? margin + 36 : margin + 7;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    textColor(colors.white);
+    pdf.text("RELATÓRIO DE CONTROLE DE QUALIDADE", titleX, y + 11);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    textColor([205, 211, 217]);
+    pdf.text(config.nome, titleX, y + 18);
+    pdf.text("Documento de inspeção", titleX, y + 24);
+
+    y += 37;
+
+    /* ========================================================
+       IDENTIFICAÇÃO
+       ======================================================== */
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    textColor(colors.dark);
+    pdf.text("IDENTIFICAÇÃO DA INSPEÇÃO", margin, y);
+    y += 5;
+
+    const gap = 4;
+    const boxWidth = (contentWidth - gap) / 2;
+    const boxHeight = 18;
+
+    const info = [
+        [margin, "RESPONSÁVEL", data.responsavel || "Não informado"],
+        [margin + boxWidth + gap, "PRODUTO / LOTE", data.lote || "Não informado"]
+    ];
+
+    info.forEach(([x, label, value]) => {
+        roundedBox(x, y, boxWidth, boxHeight, colors.light);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(6.5);
+        textColor(colors.gray);
+        pdf.text(label, x + 4, y + 6);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        textColor(colors.dark);
+        pdf.text(pdf.splitTextToSize(value, boxWidth - 8).slice(0, 1), x + 4, y + 12);
+    });
+
+    y += boxHeight + 4;
+
+    roundedBox(margin, y, contentWidth, 15, colors.light);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.5);
+    textColor(colors.gray);
+    pdf.text("DATA DA INSPEÇÃO", margin + 4, y + 6);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    textColor(colors.dark);
+    pdf.text(data.date, margin + 4, y + 11.5);
+
+    const hasNotOk = data.checklist.some(item => item.resultado === "NÃO OK");
+    const statusText = hasNotOk ? "NÃO CONFORME" : "CONFORME";
+    const statusColor = hasNotOk ? colors.red : colors.green;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.5);
+    textColor(colors.gray);
+    pdf.text("STATUS", margin + contentWidth - 38, y + 6);
+
+    pdf.setFontSize(8.5);
+    textColor(statusColor);
+    pdf.text(statusText, margin + contentWidth - 38, y + 11.5);
+
+    y += 23;
+
+    /* ========================================================
+       RESUMO
+       ======================================================== */
+
+    const total = data.checklist.length;
+    const okCount = data.checklist.filter(item => item.resultado === "OK").length;
+    const notOkCount = data.checklist.filter(item => item.resultado === "NÃO OK").length;
+    const photoCount = data.checklist.filter(item => !!item.foto).length;
+
+    const summaryGap = 3;
+    const summaryWidth = (contentWidth - summaryGap * 3) / 4;
+    const summary = [
+        ["ITENS", total, colors.dark],
+        ["OK", okCount, colors.green],
+        ["NÃO OK", notOkCount, colors.red],
+        ["FOTOS", photoCount, colors.orange]
+    ];
+
+    summary.forEach(([label, value, color], index) => {
+        const x = margin + index * (summaryWidth + summaryGap);
+
+        roundedBox(x, y, summaryWidth, 19, colors.light);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(6.5);
+        textColor(colors.gray);
+        pdf.text(label, x + 4, y + 6);
+
+        pdf.setFontSize(13);
+        textColor(color);
+        pdf.text(String(value), x + 4, y + 15);
+    });
+
+    y += 28;
+
+    /* ========================================================
+       RESULTADOS
+       ======================================================== */
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    textColor(colors.dark);
+    pdf.text("RESULTADO DA INSPEÇÃO", margin, y);
+    y += 5;
+
+    data.checklist.forEach((item, index) => {
+
+        const questionLines = pdf.splitTextToSize(item.pergunta, contentWidth - 48);
+        const rowHeight = Math.max(16, questionLines.length * 4.2 + 8);
+
+        ensureSpace(rowHeight + 2);
+
+        if (index % 2 === 0) {
+            roundedBox(margin, y, contentWidth, rowHeight, [248, 249, 250], 1);
+        }
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        textColor(colors.gray);
+        pdf.text(String(index + 1).padStart(2, "0"), margin + 4, y + 7);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.5);
+        textColor(colors.dark);
+        pdf.text(questionLines, margin + 13, y + 6);
+
+        const resultColor = item.resultado === "OK" ? colors.green : colors.red;
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7.5);
+        textColor(resultColor);
+        pdf.text(item.resultado, margin + contentWidth - 29, y + 7);
+
+        y += rowHeight + 2;
+    });
+
+    /* ========================================================
+       FOTOS
+       ======================================================== */
+
+    const photos = data.checklist.filter(item => !!item.foto);
+
+    if (photos.length > 0) {
+
+        ensureSpace(20);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(10);
+        textColor(colors.dark);
+        pdf.text("EVIDÊNCIAS FOTOGRÁFICAS", margin, y);
+        y += 6;
+
+        const photoWidth = 82;
+        const photoHeight = 58;
+        const photoGap = 6;
+
+        photos.forEach((item, photoIndex) => {
+
+            const column = photoIndex % 2;
+
+            if (column === 0) {
+                ensureSpace(photoHeight + 15);
+            }
+
+            const x = column === 0
+                ? margin
+                : margin + photoWidth + photoGap;
+
+            const topY = y;
+
+            roundedBox(x, topY, photoWidth, photoHeight + 10, [248, 249, 250], 1.5);
+
+            try {
+                pdf.addImage(
+                    item.foto,
+                    "JPEG",
+                    x + 3,
+                    topY + 3,
+                    photoWidth - 6,
+                    photoHeight - 6,
+                    undefined,
+                    "FAST"
+                );
+            } catch (error) {
+                console.error("Erro ao inserir foto:", error);
+            }
+
+            const originalIndex = data.checklist.indexOf(item);
+
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(7);
+            textColor(colors.gray);
+            pdf.text(`Item ${originalIndex + 1}`, x + 4, topY + photoHeight + 6);
+
+            if (column === 1) {
+                y += photoHeight + 14;
+            }
+        });
+
+        if (photos.length % 2 !== 0) {
+            y += photoHeight + 14;
+        }
+    }
+
+    /* ========================================================
+       FINAL
+       ======================================================== */
+
+    ensureSpace(22);
+
+    drawColor(colors.border);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, y, pageWidth - margin, y);
+
+    y += 7;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    textColor(colors.gray);
+    pdf.text("Documento gerado automaticamente pelo sistema de Controle de Qualidade.", margin, y);
+    pdf.text(`Checklist: ${config.id} | Versão: ${config.versao}`, margin, y + 5);
+
+    const totalPages = pdf.getNumberOfPages();
+
+    for (let page = 1; page <= totalPages; page++) {
+        pdf.setPage(page);
+        footer(page);
+    }
+
+    pdf.save(`controle_qualidade_${formatFileDate()}.pdf`);
+}
+
+
+function loadImageAsDataURL(src) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+
+        image.onload = function () {
+            const canvas = document.createElement("canvas");
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+
+            const context = canvas.getContext("2d");
+            context.drawImage(image, 0, 0);
+
+            resolve(canvas.toDataURL("image/png"));
+        };
+
+        image.onerror = function () {
+            reject(new Error(`Não foi possível carregar ${src}`));
+        };
+
+        image.src = `${src}?v=${Date.now()}`;
+    });
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+window.addEventListener("beforeunload", () => {
+    clearTimeout(saveTimer);
+    if (!restoringState) saveCurrentState();
+});
+
+initialize();

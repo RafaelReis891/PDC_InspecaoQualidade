@@ -1,0 +1,14 @@
+{
+  "nome": "Inspeção de Qualidade",
+  "descricao": "Checklist de controle de qualidade",
+  "perguntas": [
+    {"id": 1, "texto": "O produto está identificado corretamente?", "fotoObrigatoria": false},
+    {"id": 2, "texto": "A embalagem apresenta boas condições?", "fotoObrigatoria": false},
+    {"id": 3, "texto": "A quantidade está de acordo com o pedido?", "fotoObrigatoria": false},
+    {"id": 4, "texto": "O produto apresenta aparência adequada?", "fotoObrigatoria": false},
+    {"id": 5, "texto": "A etiqueta está legível e corretamente posicionada?", "fotoObrigatoria": false},
+    {"id": 6, "texto": "As condições de armazenamento estão adequadas?", "fotoObrigatoria": false},
+    {"id": 7, "texto": "O lote está dentro do prazo de validade?", "fotoObrigatoria": false},
+    {"id": 8, "texto": "A inspeção geral atende aos padrões de qualidade?", "fotoObrigatoria": false}
+  ]
+}
