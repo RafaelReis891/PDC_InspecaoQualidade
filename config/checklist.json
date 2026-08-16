@@ -9,6 +9,6 @@
     {"id": 5, "texto": "A etiqueta está legível e corretamente posicionada?", "fotoObrigatoria": false},
     {"id": 6, "texto": "As condições de armazenamento estão adequadas?", "fotoObrigatoria": false},
     {"id": 7, "texto": "O lote está dentro do prazo de validade?", "fotoObrigatoria": false},
-    {"id": 8, "texto": "A inspeção geral atende aos padrões de qualidade?", "fotoObrigatoria": false}
+    {"id": 8, "texto": "A inspeção geral atende aos padrões de qualidade?", "fotoObrigatoria": true}
   ]
 }
