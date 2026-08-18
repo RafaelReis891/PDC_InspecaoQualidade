@@ -1,126 +1,395 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#1769aa">
-    <title>Controle de Qualidade</title>
-    <link rel="stylesheet" href="style.css">
 
-    <!-- Exportação Excel e PDF -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-</head>
-
-<body>
-    <div class="app">
-        <header class="header">
-            <h1 id="headerTitle" class="header-title">Controle de Qualidade</h1>
-            <p id="headerSubtitle" class="header-subtitle">Checklist de inspeção</p>
-        </header>
-
-        <section class="card inspection-card">
-            <div class="inspection-data">
-                <div class="field">
-                    <label for="responsavel">Responsável</label>
-                    <input id="responsavel" type="text" autocomplete="name" placeholder="Nome do responsável">
-                </div>
-                <div class="field">
-                    <label for="lote">Produto / Lote</label>
-                    <input id="lote" type="text" placeholder="Ex.: Lote 001">
-                </div>
-            </div>
-        </section>
-
-        <section class="card progress-card">
-            <div class="progress-header">
-                <span>Progresso da inspeção</span>
-                <span id="progressText">0 / 0</span>
-            </div>
-            <div class="progress-bar">
-                <div id="progressFill" class="progress-fill"></div>
-            </div>
-            <div id="saveStatus" class="save-status">Rascunho não iniciado</div>
-        </section>
-
-        <div id="warning" class="warning" role="alert"></div>
-
-        <main id="questions"></main>
-    </div>
-
-    <div class="bottom-bar">
-        <div class="bottom-buttons">
-            <button id="pdfButton" class="main-button pdf-button" type="button" onclick="generatePDF()">
-                📄 Gerar PDF
-            </button>
-            <button id="excelButton" class="main-button excel-button" type="button" onclick="finishInspection()" disabled>
-                📊 Finalizar / Excel
-            </button>
-        </div>
-    </div>
-
-    <script src="storage.js"></script>
-    <script src="app.js"></script>
-</body>
-
-
-<nav class="top-menu">
-
-    <div class="top-menu-content">
-
-        <div class="menu-brand">
-            <span class="menu-icon">☰</span>
-            <span>Controle de Qualidade</span>
-        </div>
-
-
-        <div class="menu-actions">
-
-            <button
-                type="button"
-                class="menu-button save-button"
-                onclick="exportInspection()">
-
-                <span>💾</span>
-                <span>Salvar</span>
-
-            </button>
-
-
-            <button
-                type="button"
-                class="menu-button load-button"
-                onclick="document.getElementById('inspectionFile').click()">
-
-                <span>📂</span>
-                <span>Carregar</span>
-
-            </button>
-
-
-            <button
-                type="button"
-                class="menu-button new-button"
-                onclick="newInspection()">
-
-                <span>🗑</span>
-                <span>Nova</span>
-
-            </button>
-
-        </div>
-
-    </div>
-
-
-    <input
-        id="inspectionFile"
-        type="file"
-        accept=".json,application/json"
-        style="display:none"
-        onchange="importInspection(this)"
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
     >
 
-</nav>
+    <meta
+        name="theme-color"
+        content="#1f2933"
+    >
+
+    <title>Controle de Qualidade</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+    <!-- XLSX -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+    </script>
+
+    <!-- jsPDF -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js">
+    </script>
+
+</head>
+
+
+<body>
+
+<div class="app">
+
+    <!-- =====================================================
+         CABEÇALHO
+    ====================================================== -->
+
+    <header class="header">
+
+        <h1 class="header-title">
+            Controle de Qualidade
+        </h1>
+
+        <p class="header-subtitle">
+            Selecione um checklist para iniciar
+        </p>
+
+    </header>
+
+
+    <!-- =====================================================
+         MENU
+    ====================================================== -->
+
+    <nav class="top-menu">
+
+        <button
+            type="button"
+            class="menu-button"
+            onclick="saveInspectionFile()"
+        >
+            💾 Salvar
+        </button>
+
+
+        <button
+            type="button"
+            class="menu-button"
+            onclick="loadInspectionFile()"
+        >
+            📂 Carregar
+        </button>
+
+
+        <button
+            type="button"
+            class="menu-button"
+            onclick="newInspection()"
+        >
+            🗑 Nova
+        </button>
+
+        <input
+            id="importFile"
+            type="file"
+            accept=".json,application/json"
+            style="display:none"
+            onchange="handleImportFile(this)"
+        >
+
+    </nav>
+
+
+    <!-- =====================================================
+         IDENTIFICAÇÃO
+    ====================================================== -->
+
+    <section class="card">
+
+        <div class="inspection-data">
+
+
+            <!-- CHECKLIST -->
+
+            <div class="field">
+
+                <label for="checklistSelect">
+                    Checklist / Setor
+                </label>
+
+                <select id="checklistSelect">
+
+                    <option value="">
+                        Selecione o setor
+                    </option>
+
+                    <option value="linha-pintura">
+                        Linha de Pintura
+                    </option>
+
+                    <option value="linha-inspecao">
+                        Linha de Inspeção
+                    </option>
+
+                    <option value="linha-haste">
+                        Linha de Haste
+                    </option>
+
+                    <option value="linha-solda">
+                        Linha de Solda
+                    </option>
+
+                    <option value="linha-tubos">
+                        Linha de Tubos
+                    </option>
+
+                    <option value="linha-montagem">
+                        Linha de Montagem
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- RESPONSÁVEL -->
+
+            <div class="field">
+
+                <label for="responsavel">
+                    Responsável
+                </label>
+
+                <input
+                    id="responsavel"
+                    type="text"
+                    placeholder="Nome do responsável"
+                    autocomplete="name"
+                >
+
+            </div>
+
+
+            <!-- TURNO -->
+
+            <div class="field">
+
+                <label for="turno">
+                    Turno trabalhado
+                </label>
+
+                <input
+                    id="turno"
+                    type="text"
+                    placeholder="Ex.: 1º Turno"
+                >
+
+            </div>
+
+
+            <!-- LOTE -->
+
+            <div class="field">
+
+                <label for="lote">
+                    Produto / Lote
+                </label>
+
+                <input
+                    id="lote"
+                    type="text"
+                    placeholder="Ex.: Lote 001"
+                >
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         PROGRESSO
+    ====================================================== -->
+
+    <section class="card">
+
+        <div class="progress-header">
+
+            <span>
+                Progresso da inspeção
+            </span>
+
+            <span id="progressText">
+                0 / 0
+            </span>
+
+        </div>
+
+
+        <div class="progress-bar">
+
+            <div
+                id="progressFill"
+                class="progress-fill">
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         AVISO
+    ====================================================== -->
+
+    <div
+        id="warning"
+        class="warning">
+    </div>
+
+
+    <!-- =====================================================
+         PERGUNTAS
+    ====================================================== -->
+
+    <main id="questions"></main>
+
+
+    <!-- =====================================================
+         FINAL DO TURNO
+    ====================================================== -->
+
+    <section
+        id="finalData"
+        class="card final-data"
+    >
+
+        <div class="final-header">
+
+            <h2>
+                Registrar no final do turno
+            </h2>
+
+            <p>
+                Informe os resultados da produção deste turno.
+            </p>
+
+        </div>
+
+
+        <div class="inspection-data">
+
+
+            <!-- QTD PRODUZIDOS -->
+
+            <div class="field">
+
+                <label for="qtdProduzidos">
+                    QTD Produzidos
+                </label>
+
+                <input
+                    id="qtdProduzidos"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="0"
+                >
+
+            </div>
+
+
+            <!-- QTD NÃO CONFORMES -->
+
+            <div class="field">
+
+                <label for="qtdNaoConformes">
+                    QTD Peças Não Conformes
+                </label>
+
+                <input
+                    id="qtdNaoConformes"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="0"
+                >
+
+            </div>
+
+
+            <!-- QTD NOK AUDITORIA -->
+
+            <div class="field">
+
+                <label for="qtdNokAuditoria">
+                    QTD NOK Auditoria Processo
+                </label>
+
+                <input
+                    id="qtdNokAuditoria"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="0"
+                >
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+</div>
+
+
+<!-- =========================================================
+     BARRA INFERIOR
+========================================================= -->
+
+<div class="bottom-bar">
+
+    <div class="bottom-buttons">
+
+
+        <button
+            id="pdfButton"
+            type="button"
+            class="main-button pdf-button"
+            onclick="generatePDF()"
+        >
+            📄 Gerar PDF
+        </button>
+
+
+        <button
+            id="excelButton"
+            type="button"
+            class="main-button excel-button"
+            onclick="finishInspection()"
+            disabled
+        >
+            📊 Finalizar / Excel
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     SCRIPTS
+========================================================= -->
+
+<script src="storage.js"></script>
+
+<script src="app.js"></script>
+
+
+</body>
 
 </html>
