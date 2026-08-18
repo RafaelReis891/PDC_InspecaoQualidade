@@ -12,7 +12,7 @@
 
     <meta
         name="theme-color"
-        content="#1f2933"
+        content="#1f2937"
     >
 
     <title>Controle de Qualidade</title>
@@ -22,12 +22,12 @@
         href="style.css"
     >
 
-    <!-- XLSX -->
+    <!-- Excel -->
     <script
         src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
     </script>
 
-    <!-- jsPDF -->
+    <!-- PDF -->
     <script
         src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js">
     </script>
@@ -39,76 +39,106 @@
 
 <div class="app">
 
-    <!-- =====================================================
-         CABEÇALHO
-    ====================================================== -->
+
+    <!-- ======================================================
+         MENU
+    ======================================================= -->
 
     <header class="header">
 
-        <h1 class="header-title">
-            Controle de Qualidade
-        </h1>
+        <div class="header-top">
 
-        <p class="header-subtitle">
-            Selecione um checklist para iniciar
-        </p>
+            <div>
+
+                <h1
+                    id="headerTitle"
+                    class="header-title">
+                    Controle de Qualidade
+                </h1>
+
+                <p
+                    id="headerSubtitle"
+                    class="header-subtitle">
+                    Checklist de inspeção
+                </p>
+
+            </div>
+
+
+            <button
+                id="menuToggle"
+                class="menu-toggle"
+                type="button"
+                aria-label="Abrir menu">
+
+                ☰
+
+            </button>
+
+        </div>
+
+
+        <!-- MENU DE AÇÕES -->
+
+        <div
+            id="actionMenu"
+            class="action-menu">
+
+            <button
+                id="saveButton"
+                class="menu-action save-action"
+                type="button">
+
+                💾
+                <span>Salvar</span>
+
+            </button>
+
+
+            <button
+                id="loadButton"
+                class="menu-action load-action"
+                type="button">
+
+                📂
+                <span>Carregar</span>
+
+            </button>
+
+
+            <button
+                id="newButton"
+                class="menu-action new-action"
+                type="button">
+
+                🆕
+                <span>Novo</span>
+
+            </button>
+
+        </div>
 
     </header>
 
 
-    <!-- =====================================================
-         MENU
-    ====================================================== -->
 
-    <nav class="top-menu">
-
-        <button
-            type="button"
-            class="menu-button"
-            onclick="saveInspectionFile()"
-        >
-            💾 Salvar
-        </button>
-
-
-        <button
-            type="button"
-            class="menu-button"
-            onclick="loadInspectionFile()"
-        >
-            📂 Carregar
-        </button>
-
-
-        <button
-            type="button"
-            class="menu-button"
-            onclick="newInspection()"
-        >
-            🗑 Nova
-        </button>
-
-        <input
-            id="importFile"
-            type="file"
-            accept=".json,application/json"
-            style="display:none"
-            onchange="handleImportFile(this)"
-        >
-
-    </nav>
-
-
-    <!-- =====================================================
-         IDENTIFICAÇÃO
-    ====================================================== -->
+    <!-- ======================================================
+         DADOS DA INSPEÇÃO
+    ======================================================= -->
 
     <section class="card">
+
+        <div class="section-title">
+
+            <span>Dados da inspeção</span>
+
+        </div>
+
 
         <div class="inspection-data">
 
 
-            <!-- CHECKLIST -->
+            <!-- SETOR -->
 
             <div class="field">
 
@@ -116,39 +146,41 @@
                     Checklist / Setor
                 </label>
 
-                <select id="checklistSelect">
+                <select
+                    id="checklistSelect">
 
                     <option value="">
                         Selecione o setor
                     </option>
 
-                    <option value="linha-pintura">
+                    <option value="Linha de Pintura">
                         Linha de Pintura
                     </option>
 
-                    <option value="linha-inspecao">
+                    <option value="Linha de Inspeção">
                         Linha de Inspeção
                     </option>
 
-                    <option value="linha-haste">
+                    <option value="Linha de Haste">
                         Linha de Haste
                     </option>
 
-                    <option value="linha-solda">
+                    <option value="Linha de Solda">
                         Linha de Solda
                     </option>
 
-                    <option value="linha-tubos">
+                    <option value="Linha de Tubos">
                         Linha de Tubos
                     </option>
 
-                    <option value="linha-montagem">
+                    <option value="Linha de Montagem">
                         Linha de Montagem
                     </option>
 
                 </select>
 
             </div>
+
 
 
             <!-- RESPONSÁVEL -->
@@ -163,10 +195,11 @@
                     id="responsavel"
                     type="text"
                     placeholder="Nome do responsável"
-                    autocomplete="name"
+                    autocomplete="off"
                 >
 
             </div>
+
 
 
             <!-- TURNO -->
@@ -181,9 +214,11 @@
                     id="turno"
                     type="text"
                     placeholder="Ex.: 1º Turno"
+                    autocomplete="off"
                 >
 
             </div>
+
 
 
             <!-- LOTE -->
@@ -198,6 +233,7 @@
                     id="lote"
                     type="text"
                     placeholder="Ex.: Lote 001"
+                    autocomplete="off"
                 >
 
             </div>
@@ -207,9 +243,10 @@
     </section>
 
 
-    <!-- =====================================================
+
+    <!-- ======================================================
          PROGRESSO
-    ====================================================== -->
+    ======================================================= -->
 
     <section class="card">
 
@@ -238,9 +275,10 @@
     </section>
 
 
-    <!-- =====================================================
+
+    <!-- ======================================================
          AVISO
-    ====================================================== -->
+    ======================================================= -->
 
     <div
         id="warning"
@@ -248,44 +286,37 @@
     </div>
 
 
-    <!-- =====================================================
+
+    <!-- ======================================================
          PERGUNTAS
-    ====================================================== -->
+    ======================================================= -->
 
     <main id="questions"></main>
 
 
-    <!-- =====================================================
-         FINAL DO TURNO
-    ====================================================== -->
+
+    <!-- ======================================================
+         RESULTADO FINAL DO TURNO
+    ======================================================= -->
 
     <section
         id="finalData"
-        class="card final-data"
-    >
+        class="card final-data">
 
-        <div class="final-header">
+        <div class="section-title">
 
-            <h2>
-                Registrar no final do turno
-            </h2>
-
-            <p>
-                Informe os resultados da produção deste turno.
-            </p>
+            Registrar no final do turno
 
         </div>
 
 
-        <div class="inspection-data">
+        <div class="final-grid">
 
-
-            <!-- QTD PRODUZIDOS -->
 
             <div class="field">
 
                 <label for="qtdProduzidos">
-                    QTD Produzidos
+                    QTD produzidos
                 </label>
 
                 <input
@@ -293,14 +324,12 @@
                     type="number"
                     min="0"
                     step="1"
-                    inputmode="numeric"
                     placeholder="0"
                 >
 
             </div>
 
 
-            <!-- QTD NÃO CONFORMES -->
 
             <div class="field">
 
@@ -313,14 +342,12 @@
                     type="number"
                     min="0"
                     step="1"
-                    inputmode="numeric"
                     placeholder="0"
                 >
 
             </div>
 
 
-            <!-- QTD NOK AUDITORIA -->
 
             <div class="field">
 
@@ -333,7 +360,6 @@
                     type="number"
                     min="0"
                     step="1"
-                    inputmode="numeric"
                     placeholder="0"
                 >
 
@@ -343,13 +369,13 @@
 
     </section>
 
-
 </div>
 
 
-<!-- =========================================================
+
+<!-- ==========================================================
      BARRA INFERIOR
-========================================================= -->
+=========================================================== -->
 
 <div class="bottom-bar">
 
@@ -358,22 +384,25 @@
 
         <button
             id="pdfButton"
-            type="button"
             class="main-button pdf-button"
-            onclick="generatePDF()"
-        >
-            📄 Gerar PDF
+            type="button">
+
+            📄
+            <span>Gerar PDF</span>
+
         </button>
+
 
 
         <button
             id="excelButton"
-            type="button"
             class="main-button excel-button"
-            onclick="finishInspection()"
-            disabled
-        >
-            📊 Finalizar / Excel
+            type="button"
+            disabled>
+
+            📊
+            <span>Finalizar / Excel</span>
+
         </button>
 
     </div>
@@ -381,9 +410,49 @@
 </div>
 
 
-<!-- =========================================================
+
+<!-- ==========================================================
+     MODAL DE CARREGAMENTO
+=========================================================== -->
+
+<div
+    id="loadModal"
+    class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <h2>
+                Inspeção salva
+            </h2>
+
+            <button
+                id="closeLoadModal"
+                type="button">
+
+                ×
+
+            </button>
+
+        </div>
+
+
+        <div
+            id="savedInspections"
+            class="saved-inspections">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ==========================================================
      SCRIPTS
-========================================================= -->
+=========================================================== -->
 
 <script src="storage.js"></script>
 
