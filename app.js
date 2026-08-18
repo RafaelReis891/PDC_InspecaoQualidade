@@ -1,14 +1,74 @@
+/*
+ * ============================================================
+ * CONTROLE DE QUALIDADE
+ * app.js
+ *
+ * Versão: 2
+ * ============================================================
+ */
+
+
+/* ============================================================
+   CONFIGURAÇÃO DOS CHECKLISTS
+============================================================ */
+
+const CHECKLISTS = [
+
+    {
+        id: "linha-pintura",
+        nome: "Linha de Pintura",
+        arquivo: "config/checklists/linha-pintura.json"
+    },
+
+    {
+        id: "linha-inspecao",
+        nome: "Linha de Inspeção",
+        arquivo: "config/checklists/linha-inspecao.json"
+    },
+
+    {
+        id: "linha-haste",
+        nome: "Linha de Haste",
+        arquivo: "config/checklists/linha-haste.json"
+    },
+
+    {
+        id: "linha-solda",
+        nome: "Linha de Solda",
+        arquivo: "config/checklists/linha-solda.json"
+    },
+
+    {
+        id: "linha-tubos",
+        nome: "Linha de Tubos",
+        arquivo: "config/checklists/linha-tubos.json"
+    },
+
+    {
+        id: "linha-montagem",
+        nome: "Linha de Montagem",
+        arquivo: "config/checklists/linha-montagem.json"
+    }
+
+];
+
+
+/* ============================================================
+   ESTADO
+============================================================ */
+
 let config = null;
+
 let checklist = [];
 
 let saveTimer = null;
 
+let loadingChecklist = false;
 
-/*
- * ============================================================
- * INICIALIZAÇÃO
- * ============================================================
- */
+
+/* ============================================================
+   INICIALIZAÇÃO
+============================================================ */
 
 async function initialize() {
 
@@ -17,16 +77,608 @@ async function initialize() {
         await openDatabase();
 
 
+        /*
+         * Eventos dos campos
+         */
+
+        document
+            .getElementById("checklistSelect")
+            .addEventListener(
+                "change",
+                changeChecklist
+            );
+
+
+        document
+            .getElementById("responsavel")
+            .addEventListener(
+                "input",
+                scheduleSave
+            );
+
+
+        document
+            .getElementById("turno")
+            .addEventListener(
+                "input",
+                scheduleSave
+            );
+
+
+        document
+            .getElementById("lote")
+            .addEventListener(
+                "input",
+                scheduleSave
+            );
+
+
+        document
+            .getElementById("qtdProduzidos")
+            .addEventListener(
+                "input",
+                scheduleSave
+            );
+
+
+        document
+            .getElementById("qtdNaoConformes")
+            .addEventListener(
+                "input",
+                scheduleSave
+            );
+
+
+        document
+            .getElementById("qtdNokAuditoria")
+            .addEventListener(
+                "input",
+                scheduleSave
+            );
+
+
+        /*
+         * Inicialmente não existe checklist.
+         */
+
+        config = null;
+
+        checklist = [];
+
+
+        /*
+         * Esconde área final até existir checklist.
+         */
+
+        setChecklistVisibility(false);
+
+
+        updateProgress();
+
+
+        /*
+         * Tenta restaurar inspeção salva.
+         */
+
+        const saved =
+            await loadInspectionState();
+
+
+        if (saved) {
+
+            await restoreSavedInspection(saved);
+
+        }
+
+
+        console.log(
+            "Aplicação inicializada."
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        showFatalError(
+            error
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   VISIBILIDADE DO CHECKLIST
+============================================================ */
+
+function setChecklistVisibility(visible) {
+
+    const questions =
+        document.getElementById(
+            "questions"
+        );
+
+
+    const finalData =
+        document.getElementById(
+            "finalData"
+        );
+
+
+    if (questions) {
+
+        questions.style.display =
+            visible
+                ? ""
+                : "none";
+
+    }
+
+
+    if (finalData) {
+
+        finalData.style.display =
+            visible
+                ? ""
+                : "none";
+
+    }
+
+}
+
+
+/* ============================================================
+   ERRO FATAL
+============================================================ */
+
+function showFatalError(error) {
+
+    document.body.innerHTML = `
+
+        <div style="
+            padding:30px;
+            font-family:Arial,sans-serif;
+        ">
+
+            <h2>
+                Erro ao iniciar aplicação
+            </h2>
+
+            <p>
+                ${
+                    error?.message ||
+                    "Erro desconhecido."
+                }
+            </p>
+
+        </div>
+
+    `;
+
+}
+
+
+/* ============================================================
+   TROCAR CHECKLIST
+============================================================ */
+
+async function changeChecklist() {
+
+    if (loadingChecklist) {
+        return;
+    }
+
+
+    const select =
+        document.getElementById(
+            "checklistSelect"
+        );
+
+
+    const checklistId =
+        select.value;
+
+
+    if (!checklistId) {
+
+        return;
+
+    }
+
+
+    const selected =
+        CHECKLISTS.find(
+            item =>
+                item.id === checklistId
+        );
+
+
+    if (!selected) {
+
+        alert(
+            "Checklist não encontrado."
+        );
+
+        select.value =
+            config?.id || "";
+
+        return;
+
+    }
+
+
+    /*
+     * Verifica se existe inspeção em andamento.
+     */
+
+    const hasData =
+        hasCurrentInspectionData();
+
+
+    if (hasData && config) {
+
+        const confirmed =
+            confirm(
+                "Existe uma inspeção em andamento.\n\n" +
+                "Ao trocar o checklist, os dados atuais " +
+                "serão descartados.\n\n" +
+                "Deseja continuar?"
+            );
+
+
+        if (!confirmed) {
+
+            select.value =
+                config.id;
+
+            return;
+
+        }
+
+    }
+
+
+    try {
+
+        loadingChecklist = true;
+
+
         const response =
             await fetch(
-                "config/checklist.json"
+                selected.arquivo,
+                {
+                    cache: "no-cache"
+                }
             );
 
 
         if (!response.ok) {
 
             throw new Error(
-                "Não foi possível carregar o checklist."
+                `Não foi possível carregar:\n${selected.arquivo}`
+            );
+
+        }
+
+
+        const newConfig =
+            await response.json();
+
+
+        /*
+         * Validação básica
+         */
+
+        if (
+            !newConfig ||
+            !Array.isArray(
+                newConfig.perguntas
+            )
+        ) {
+
+            throw new Error(
+                "O JSON do checklist possui formato inválido."
+            );
+
+        }
+
+
+        config =
+            newConfig;
+
+
+        checklist =
+            config.perguntas.map(
+                () => ({
+
+                    answer: null,
+
+                    photo: null
+
+                })
+            );
+
+
+        /*
+         * Limpa dados anteriores.
+         */
+
+        clearFormFields();
+
+
+        /*
+         * Atualiza cabeçalho.
+         */
+
+        document
+            .querySelector(".header-title")
+            .textContent =
+            config.nome;
+
+
+        document
+            .querySelector(".header-subtitle")
+            .textContent =
+            config.descricao ||
+            "Checklist de inspeção";
+
+
+        /*
+         * Renderiza perguntas.
+         */
+
+        renderQuestions();
+
+
+        setChecklistVisibility(
+            true
+        );
+
+
+        updateProgress();
+
+
+        /*
+         * Remove estado anterior.
+         */
+
+        await clearInspectionState();
+
+
+        /*
+         * Salva imediatamente o novo estado.
+         */
+
+        await saveCurrentState();
+
+
+        window.scrollTo({
+
+            top: 0,
+
+            behavior: "smooth"
+
+        });
+
+
+        console.log(
+            `Checklist carregado: ${config.nome}`
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+
+        alert(
+            "Não foi possível carregar o checklist.\n\n" +
+            error.message
+        );
+
+
+        /*
+         * Retorna para o checklist anterior.
+         */
+
+        if (config) {
+
+            select.value =
+                config.id;
+
+        }
+
+    }
+
+    finally {
+
+        loadingChecklist = false;
+
+    }
+
+}
+
+
+/* ============================================================
+   VERIFICAR SE EXISTEM DADOS
+============================================================ */
+
+function hasCurrentInspectionData() {
+
+    if (!config) {
+
+        return false;
+
+    }
+
+
+    const responsavel =
+        document
+            .getElementById("responsavel")
+            .value
+            .trim();
+
+
+    const turno =
+        document
+            .getElementById("turno")
+            .value
+            .trim();
+
+
+    const lote =
+        document
+            .getElementById("lote")
+            .value
+            .trim();
+
+
+    const qtdProduzidos =
+        document
+            .getElementById("qtdProduzidos")
+            .value;
+
+
+    const qtdNaoConformes =
+        document
+            .getElementById("qtdNaoConformes")
+            .value;
+
+
+    const qtdNokAuditoria =
+        document
+            .getElementById("qtdNokAuditoria")
+            .value;
+
+
+    const checklistHasData =
+        checklist.some(
+            item =>
+                item.answer !== null ||
+                !!item.photo
+        );
+
+
+    return (
+        responsavel !== "" ||
+        turno !== "" ||
+        lote !== "" ||
+        qtdProduzidos !== "" ||
+        qtdNaoConformes !== "" ||
+        qtdNokAuditoria !== "" ||
+        checklistHasData
+    );
+
+}
+
+
+/* ============================================================
+   LIMPAR CAMPOS
+============================================================ */
+
+function clearFormFields() {
+
+    document
+        .getElementById("responsavel")
+        .value = "";
+
+
+    document
+        .getElementById("turno")
+        .value = "";
+
+
+    document
+        .getElementById("lote")
+        .value = "";
+
+
+    document
+        .getElementById("qtdProduzidos")
+        .value = "";
+
+
+    document
+        .getElementById("qtdNaoConformes")
+        .value = "";
+
+
+    document
+        .getElementById("qtdNokAuditoria")
+        .value = "";
+
+}
+
+
+/* ============================================================
+   RESTAURAR INSPEÇÃO
+============================================================ */
+
+async function restoreSavedInspection(saved) {
+
+    try {
+
+        /*
+         * Compatibilidade com versão antiga.
+         */
+
+        const checklistId =
+            saved.checklistId ||
+            findChecklistIdByName(
+                saved.checklistName
+            );
+
+
+        if (!checklistId) {
+
+            console.warn(
+                "Não foi possível identificar o checklist salvo."
+            );
+
+            return;
+
+        }
+
+
+        const selected =
+            CHECKLISTS.find(
+                item =>
+                    item.id === checklistId
+            );
+
+
+        if (!selected) {
+
+            console.warn(
+                "Checklist salvo não está disponível."
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * Carrega o JSON.
+         */
+
+        const response =
+            await fetch(
+                selected.arquivo,
+                {
+                    cache: "no-cache"
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Não foi possível carregar o checklist salvo."
             );
 
         }
@@ -48,188 +700,204 @@ async function initialize() {
             );
 
 
-        document.querySelector(
-            ".header-title"
-        ).textContent =
+        /*
+         * Renderiza.
+         */
+
+        document
+            .getElementById(
+                "checklistSelect"
+            )
+            .value =
+            config.id;
+
+
+        document
+            .querySelector(".header-title")
+            .textContent =
             config.nome;
 
 
-        document.querySelector(
-            ".header-subtitle"
-        ).textContent =
-            config.descricao;
+        document
+            .querySelector(".header-subtitle")
+            .textContent =
+            config.descricao ||
+            "Checklist de inspeção";
 
 
         renderQuestions();
 
 
+        setChecklistVisibility(
+            true
+        );
+
+
         /*
-         * ====================================================
-         * RESTAURAR ESTADO
-         * ====================================================
+         * Campos.
          */
 
-        const saved =
-            await loadInspectionState();
+        document
+            .getElementById("responsavel")
+            .value =
+            saved.responsavel ||
+            "";
 
+
+        document
+            .getElementById("turno")
+            .value =
+            saved.turno ||
+            "";
+
+
+        document
+            .getElementById("lote")
+            .value =
+            saved.lote ||
+            "";
+
+
+        document
+            .getElementById("qtdProduzidos")
+            .value =
+            saved.qtdProduzidos ??
+            "";
+
+
+        document
+            .getElementById("qtdNaoConformes")
+            .value =
+            saved.qtdNaoConformes ??
+            "";
+
+
+        document
+            .getElementById("qtdNokAuditoria")
+            .value =
+            saved.qtdNokAuditoria ??
+            "";
+
+
+        /*
+         * Respostas e fotos.
+         */
 
         if (
-            saved &&
-            saved.checklistName === config.nome
+            Array.isArray(
+                saved.checklist
+            )
         ) {
 
-            document
-                .getElementById("responsavel")
-                .value =
-                saved.responsavel || "";
-
-
-            document
-                .getElementById("lote")
-                .value =
-                saved.lote || "";
-
-
-            if (
-                Array.isArray(
-                    saved.checklist
-                )
-            ) {
-
-                saved.checklist.forEach(
-                    (savedItem, index) => {
-
-                        if (
-                            !checklist[index]
-                        ) {
-                            return;
-                        }
-
-
-                        checklist[index].answer =
-                            savedItem.answer;
-
-
-                        checklist[index].photo =
-                            savedItem.photo;
-
-                    }
-                );
-
-            }
-
-
-            checklist.forEach(
-                (item, index) => {
+            saved.checklist.forEach(
+                (savedItem, index) => {
 
                     if (
-                        item.answer
+                        !checklist[index]
                     ) {
 
-                        document
-                            .getElementById(
-                                `ok-${index}`
-                            )
-                            .classList
-                            .toggle(
-                                "active",
-                                item.answer === "OK"
-                            );
-
-
-                        document
-                            .getElementById(
-                                `notok-${index}`
-                            )
-                            .classList
-                            .toggle(
-                                "active",
-                                item.answer === "NÃO OK"
-                            );
+                        return;
 
                     }
 
 
-                    if (
-                        item.photo
-                    ) {
-
-                        document
-                            .getElementById(
-                                `image-${index}`
-                            )
-                            .src =
-                            item.photo;
+                    checklist[index].answer =
+                        savedItem.answer ??
+                        savedItem.resultado ??
+                        null;
 
 
-                        document
-                            .getElementById(
-                                `preview-${index}`
-                            )
-                            .style.display =
-                            "block";
+                    checklist[index].photo =
+                        savedItem.photo ??
+                        savedItem.foto ??
+                        null;
 
-
-                        document
-                            .getElementById(
-                                `photo-name-${index}`
-                            )
-                            .textContent =
-                            "Foto restaurada";
-
-                    }
-
-                });
+                }
+            );
 
         }
 
 
+        /*
+         * Atualiza visual.
+         */
+
+        restoreChecklistVisual();
+
+
         updateProgress();
+
+
+        console.log(
+            "Inspeção restaurada."
+        );
 
     }
 
     catch (error) {
 
-        console.error(error);
-
-
-        document.body.innerHTML = `
-
-            <div style="
-                padding:30px;
-                font-family:Arial;
-            ">
-
-                <h2>
-                    Erro ao iniciar aplicação
-                </h2>
-
-                <p>
-                    ${error.message}
-                </p>
-
-            </div>
-
-        `;
+        console.error(
+            "Erro ao restaurar inspeção:",
+            error
+        );
 
     }
 
 }
 
 
-/*
- * ============================================================
- * MONTAR PERGUNTAS
- * ============================================================
- */
+/* ============================================================
+   ENCONTRAR ID POR NOME
+============================================================ */
+
+function findChecklistIdByName(name) {
+
+    if (!name) {
+
+        return null;
+
+    }
+
+
+    const found =
+        CHECKLISTS.find(
+            item =>
+                item.nome === name
+        );
+
+
+    return found
+        ? found.id
+        : null;
+
+}
+
+
+/* ============================================================
+   RENDERIZAR PERGUNTAS
+============================================================ */
 
 function renderQuestions() {
 
     const container =
-        document.getElementById("questions");
+        document.getElementById(
+            "questions"
+        );
 
 
     container.innerHTML = "";
+
+
+    if (
+        !config ||
+        !Array.isArray(
+            config.perguntas
+        )
+    ) {
+
+        return;
+
+    }
 
 
     config.perguntas.forEach(
@@ -258,12 +926,18 @@ function renderQuestions() {
                 <div class="question-top">
 
                     <div class="question-number">
+
                         ${index + 1}
+
                     </div>
 
 
                     <div class="question-text">
-                        ${question.texto}
+
+                        ${escapeHTML(
+                            question.texto
+                        )}
+
                     </div>
 
                 </div>
@@ -273,8 +947,10 @@ function renderQuestions() {
 
                     <button
                         id="ok-${index}"
+                        type="button"
                         class="answer-button answer-ok"
-                        onclick="setAnswer(${index}, 'OK')">
+                        onclick="setAnswer(${index}, 'OK')"
+                    >
 
                         ✓ OK
 
@@ -283,8 +959,10 @@ function renderQuestions() {
 
                     <button
                         id="notok-${index}"
+                        type="button"
                         class="answer-button answer-not-ok"
-                        onclick="setAnswer(${index}, 'NÃO OK')">
+                        onclick="setAnswer(${index}, 'NÃO OK')"
+                    >
 
                         ✕ NÃO OK
 
@@ -320,7 +998,9 @@ function renderQuestions() {
 
                 <div
                     id="preview-${index}"
-                    class="photo-preview">
+                    class="photo-preview"
+                    style="display:none;"
+                >
 
                     <img
                         id="image-${index}"
@@ -329,8 +1009,10 @@ function renderQuestions() {
 
 
                     <button
+                        type="button"
                         class="remove-photo"
-                        onclick="removePhoto(${index})">
+                        onclick="removePhoto(${index})"
+                    >
 
                         ×
 
@@ -348,44 +1030,193 @@ function renderQuestions() {
         }
     );
 
+
+    restoreChecklistVisual();
+
 }
 
 
-/*
- * ============================================================
- * RESPOSTA
- * ============================================================
- */
+/* ============================================================
+   ESCAPE HTML
+============================================================ */
+
+function escapeHTML(value) {
+
+    if (value === null ||
+        value === undefined) {
+
+        return "";
+
+    }
+
+
+    return String(value)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+/* ============================================================
+   RESTAURAR VISUAL
+============================================================ */
+
+function restoreChecklistVisual() {
+
+    checklist.forEach(
+        (item, index) => {
+
+            const ok =
+                document.getElementById(
+                    `ok-${index}`
+                );
+
+
+            const notok =
+                document.getElementById(
+                    `notok-${index}`
+                );
+
+
+            if (ok) {
+
+                ok.classList.toggle(
+                    "active",
+                    item.answer === "OK"
+                );
+
+            }
+
+
+            if (notok) {
+
+                notok.classList.toggle(
+                    "active",
+                    item.answer === "NÃO OK"
+                );
+
+            }
+
+
+            if (item.photo) {
+
+                const image =
+                    document.getElementById(
+                        `image-${index}`
+                    );
+
+
+                const preview =
+                    document.getElementById(
+                        `preview-${index}`
+                    );
+
+
+                const name =
+                    document.getElementById(
+                        `photo-name-${index}`
+                    );
+
+
+                if (image) {
+
+                    image.src =
+                        item.photo;
+
+                }
+
+
+                if (preview) {
+
+                    preview.style.display =
+                        "block";
+
+                }
+
+
+                if (name) {
+
+                    name.textContent =
+                        "Foto restaurada";
+
+                }
+
+            }
+
+        }
+    );
+
+}
+
+
+/* ============================================================
+   RESPOSTA
+============================================================ */
 
 function setAnswer(
     index,
     answer
 ) {
 
+    if (!checklist[index]) {
+
+        return;
+
+    }
+
+
     checklist[index].answer =
         answer;
 
 
-    document
-        .getElementById(
+    const ok =
+        document.getElementById(
             `ok-${index}`
-        )
-        .classList
-        .toggle(
+        );
+
+
+    const notok =
+        document.getElementById(
+            `notok-${index}`
+        );
+
+
+    if (ok) {
+
+        ok.classList.toggle(
             "active",
             answer === "OK"
         );
 
+    }
 
-    document
-        .getElementById(
-            `notok-${index}`
-        )
-        .classList
-        .toggle(
+
+    if (notok) {
+
+        notok.classList.toggle(
             "active",
             answer === "NÃO OK"
         );
+
+    }
 
 
     updateProgress();
@@ -395,11 +1226,9 @@ function setAnswer(
 }
 
 
-/*
- * ============================================================
- * FOTO
- * ============================================================
- */
+/* ============================================================
+   FOTO
+============================================================ */
 
 function handlePhoto(
     index,
@@ -407,11 +1236,34 @@ function handlePhoto(
 ) {
 
     const file =
-        input.files[0];
+        input.files?.[0];
 
 
     if (!file) {
+
         return;
+
+    }
+
+
+    /*
+     * Verificação básica.
+     */
+
+    if (
+        !file.type.startsWith(
+            "image/"
+        )
+    ) {
+
+        alert(
+            "Selecione uma imagem válida."
+        );
+
+        input.value = "";
+
+        return;
+
     }
 
 
@@ -426,28 +1278,46 @@ function handlePhoto(
                 event.target.result;
 
 
-            document
-                .getElementById(
+            const image =
+                document.getElementById(
                     `image-${index}`
-                )
-                .src =
-                event.target.result;
+                );
 
 
-            document
-                .getElementById(
+            const preview =
+                document.getElementById(
                     `preview-${index}`
-                )
-                .style.display =
-                "block";
+                );
 
 
-            document
-                .getElementById(
+            const name =
+                document.getElementById(
                     `photo-name-${index}`
-                )
-                .textContent =
-                file.name;
+                );
+
+
+            if (image) {
+
+                image.src =
+                    event.target.result;
+
+            }
+
+
+            if (preview) {
+
+                preview.style.display =
+                    "block";
+
+            }
+
+
+            if (name) {
+
+                name.textContent =
+                    file.name;
+
+            }
 
 
             scheduleSave();
@@ -462,34 +1332,64 @@ function handlePhoto(
 }
 
 
-/*
- * ============================================================
- * REMOVER FOTO
- * ============================================================
- */
+/* ============================================================
+   REMOVER FOTO
+============================================================ */
 
-function removePhoto(
-    index
-) {
+function removePhoto(index) {
+
+    if (!checklist[index]) {
+
+        return;
+
+    }
+
 
     checklist[index].photo =
         null;
 
 
-    document
-        .getElementById(
+    const preview =
+        document.getElementById(
             `preview-${index}`
-        )
-        .style.display =
-        "none";
+        );
 
 
-    document
-        .getElementById(
+    const name =
+        document.getElementById(
             `photo-name-${index}`
-        )
-        .textContent =
-        "";
+        );
+
+
+    const image =
+        document.getElementById(
+            `image-${index}`
+        );
+
+
+    if (preview) {
+
+        preview.style.display =
+            "none";
+
+    }
+
+
+    if (name) {
+
+        name.textContent =
+            "";
+
+    }
+
+
+    if (image) {
+
+        image.removeAttribute(
+            "src"
+        );
+
+    }
 
 
     scheduleSave();
@@ -497,16 +1397,57 @@ function removePhoto(
 }
 
 
-/*
- * ============================================================
- * PROGRESSO
- * ============================================================
- */
+/* ============================================================
+   PROGRESSO
+============================================================ */
 
 function updateProgress() {
 
+    const progressText =
+        document.getElementById(
+            "progressText"
+        );
+
+
+    const progressFill =
+        document.getElementById(
+            "progressFill"
+        );
+
+
+    const excelButton =
+        document.getElementById(
+            "excelButton"
+        );
+
+
     if (!checklist.length) {
+
+        if (progressText) {
+
+            progressText.textContent =
+                "0 / 0";
+
+        }
+
+
+        if (progressFill) {
+
+            progressFill.style.width =
+                "0%";
+
+        }
+
+
+        if (excelButton) {
+
+            excelButton.disabled =
+                true;
+
+        }
+
         return;
+
     }
 
 
@@ -528,39 +1469,116 @@ function updateProgress() {
         ) * 100;
 
 
-    document
-        .getElementById(
-            "progressText"
-        )
-        .textContent =
-        `${completed} / ${total}`;
+    if (progressText) {
+
+        progressText.textContent =
+            `${completed} / ${total}`;
+
+    }
 
 
-    document
-        .getElementById(
-            "progressFill"
-        )
-        .style.width =
-        `${percentage}%`;
+    if (progressFill) {
+
+        progressFill.style.width =
+            `${percentage}%`;
+
+    }
 
 
-    document
-        .getElementById(
-            "excelButton"
-        )
-        .disabled =
-        completed !== total;
+    if (excelButton) {
+
+        excelButton.disabled =
+            completed !== total;
+
+    }
 
 }
 
 
-/*
- * ============================================================
- * VALIDAÇÃO
- * ============================================================
- */
+/* ============================================================
+   VALIDAÇÃO
+============================================================ */
 
 function validateChecklist() {
+
+    if (!config) {
+
+        showWarning(
+            "Selecione um checklist antes de continuar."
+        );
+
+        return false;
+
+    }
+
+
+    /*
+     * Responsável
+     */
+
+    const responsavel =
+        document
+            .getElementById(
+                "responsavel"
+            )
+            .value
+            .trim();
+
+
+    if (!responsavel) {
+
+        showWarning(
+            "Informe o responsável pela inspeção."
+        );
+
+
+        document
+            .getElementById(
+                "responsavel"
+            )
+            .focus();
+
+
+        return false;
+
+    }
+
+
+    /*
+     * Turno
+     */
+
+    const turno =
+        document
+            .getElementById(
+                "turno"
+            )
+            .value
+            .trim();
+
+
+    if (!turno) {
+
+        showWarning(
+            "Informe o turno trabalhado."
+        );
+
+
+        document
+            .getElementById(
+                "turno"
+            )
+            .focus();
+
+
+        return false;
+
+    }
+
+
+    /*
+     * Perguntas
+     */
 
     const incomplete =
         checklist.findIndex(
@@ -569,9 +1587,7 @@ function validateChecklist() {
         );
 
 
-    if (
-        incomplete !== -1
-    ) {
+    if (incomplete !== -1) {
 
         showWarning(
             `A pergunta ${
@@ -584,9 +1600,12 @@ function validateChecklist() {
             .getElementById(
                 `ok-${incomplete}`
             )
-            .scrollIntoView({
+            ?.scrollIntoView({
+
                 behavior: "smooth",
+
                 block: "center"
+
             });
 
 
@@ -594,6 +1613,10 @@ function validateChecklist() {
 
     }
 
+
+    /*
+     * Fotos obrigatórias
+     */
 
     for (
         let i = 0;
@@ -621,9 +1644,12 @@ function validateChecklist() {
                 .getElementById(
                     `photo-name-${i}`
                 )
-                .scrollIntoView({
+                ?.scrollIntoView({
+
                     behavior: "smooth",
+
                     block: "center"
+
                 });
 
 
@@ -636,21 +1662,16 @@ function validateChecklist() {
 
     hideWarning();
 
-
     return true;
 
 }
 
 
-/*
- * ============================================================
- * AVISO
- * ============================================================
- */
+/* ============================================================
+   AVISO
+============================================================ */
 
-function showWarning(
-    message
-) {
+function showWarning(message) {
 
     const warning =
         document.getElementById(
@@ -665,6 +1686,15 @@ function showWarning(
     warning.style.display =
         "block";
 
+
+    warning.scrollIntoView({
+
+        behavior: "smooth",
+
+        block: "center"
+
+    });
+
 }
 
 
@@ -676,30 +1706,46 @@ function hideWarning() {
         );
 
 
-    if (warning) {
-
-        warning.style.display =
-            "none";
-
-    }
+    warning.style.display =
+        "none";
 
 }
 
 
-/*
- * ============================================================
- * DADOS
- * ============================================================
- */
+/* ============================================================
+   DADOS DA INSPEÇÃO
+============================================================ */
 
 function getInspectionData() {
 
     return {
 
+        version: 2,
+
+        checklistId:
+            config?.id ||
+            null,
+
+        checklistName:
+            config?.nome ||
+            null,
+
+        checklistVersion:
+            config?.versao ||
+            1,
+
         responsavel:
             document
                 .getElementById(
                     "responsavel"
+                )
+                .value
+                .trim(),
+
+        turno:
+            document
+                .getElementById(
+                    "turno"
                 )
                 .value
                 .trim(),
@@ -718,8 +1764,28 @@ function getInspectionData() {
                     "pt-BR"
                 ),
 
-        checklist:
+        qtdProduzidos:
+            document
+                .getElementById(
+                    "qtdProduzidos"
+                )
+                .value,
 
+        qtdNaoConformes:
+            document
+                .getElementById(
+                    "qtdNaoConformes"
+                )
+                .value,
+
+        qtdNokAuditoria:
+            document
+                .getElementById(
+                    "qtdNokAuditoria"
+                )
+                .value,
+
+        checklist:
             config.perguntas.map(
                 (
                     question,
@@ -748,18 +1814,696 @@ function getInspectionData() {
 }
 
 
-/*
- * ============================================================
- * EXCEL
- * ============================================================
- */
+/* ============================================================
+   AUTOSAVE
+============================================================ */
+
+async function saveCurrentState() {
+
+    if (!config) {
+
+        return;
+
+    }
+
+
+    const state = {
+
+        version: 2,
+
+        savedAt:
+            new Date().toISOString(),
+
+        checklistId:
+            config.id,
+
+        checklistName:
+            config.nome,
+
+        checklistVersion:
+            config.versao ||
+            1,
+
+        responsavel:
+            document
+                .getElementById(
+                    "responsavel"
+                )
+                .value,
+
+        turno:
+            document
+                .getElementById(
+                    "turno"
+                )
+                .value,
+
+        lote:
+            document
+                .getElementById(
+                    "lote"
+                )
+                .value,
+
+        qtdProduzidos:
+            document
+                .getElementById(
+                    "qtdProduzidos"
+                )
+                .value,
+
+        qtdNaoConformes:
+            document
+                .getElementById(
+                    "qtdNaoConformes"
+                )
+                .value,
+
+        qtdNokAuditoria:
+            document
+                .getElementById(
+                    "qtdNokAuditoria"
+                )
+                .value,
+
+        checklist:
+            checklist.map(
+                item => ({
+
+                    answer:
+                        item.answer,
+
+                    photo:
+                        item.photo
+
+                })
+            )
+
+    };
+
+
+    try {
+
+        await saveInspectionState(
+            state
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Erro ao salvar inspeção:",
+            error
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   AGENDAR SAVE
+============================================================ */
+
+function scheduleSave() {
+
+    if (!config) {
+
+        return;
+
+    }
+
+
+    clearTimeout(
+        saveTimer
+    );
+
+
+    saveTimer =
+        setTimeout(
+            () => {
+
+                saveCurrentState();
+
+            },
+            400
+        );
+
+}
+
+
+/* ============================================================
+   SALVAR ARQUIVO JSON
+============================================================ */
+
+async function saveInspectionFile() {
+
+    if (!config) {
+
+        alert(
+            "Selecione um checklist antes de salvar."
+        );
+
+        return;
+
+    }
+
+
+    const data =
+        getInspectionData();
+
+
+    const exportData = {
+
+        ...data,
+
+        exportedAt:
+            new Date().toISOString()
+
+    };
+
+
+    const json =
+        JSON.stringify(
+            exportData,
+            null,
+            4
+        );
+
+
+    const blob =
+        new Blob(
+            [json],
+            {
+                type:
+                    "application/json"
+            }
+        );
+
+
+    const url =
+        URL.createObjectURL(
+            blob
+        );
+
+
+    const link =
+        document.createElement(
+            "a"
+        );
+
+
+    link.href =
+        url;
+
+
+    link.download =
+        `inspecao_${sanitizeFileName(
+            config.nome
+        )}_${formatFileDate(
+            new Date()
+        )}.json`;
+
+
+    document.body.appendChild(
+        link
+    );
+
+
+    link.click();
+
+
+    link.remove();
+
+
+    URL.revokeObjectURL(
+        url
+    );
+
+
+    await saveCurrentState();
+
+}
+
+
+/* ============================================================
+   CARREGAR ARQUIVO
+============================================================ */
+
+function loadInspectionFile() {
+
+    const input =
+        document.getElementById(
+            "importFile"
+        );
+
+
+    input.value = "";
+
+    input.click();
+
+}
+
+
+/* ============================================================
+   IMPORTAR JSON
+============================================================ */
+
+async function handleImportFile(
+    input
+) {
+
+    const file =
+        input.files?.[0];
+
+
+    if (!file) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const text =
+            await file.text();
+
+
+        const data =
+            JSON.parse(
+                text
+            );
+
+
+        if (
+            !data ||
+            !Array.isArray(
+                data.checklist
+            )
+        ) {
+
+            throw new Error(
+                "Arquivo de inspeção inválido."
+            );
+
+        }
+
+
+        const checklistId =
+            data.checklistId ||
+            findChecklistIdByName(
+                data.checklistName
+            );
+
+
+        if (!checklistId) {
+
+            throw new Error(
+                "Não foi possível identificar o checklist desse arquivo."
+            );
+
+        }
+
+
+        const selected =
+            CHECKLISTS.find(
+                item =>
+                    item.id === checklistId
+            );
+
+
+        if (!selected) {
+
+            throw new Error(
+                "O checklist desse arquivo não está disponível nesta instalação."
+            );
+
+        }
+
+
+        /*
+         * Confirma se já existe outra inspeção.
+         */
+
+        if (
+            hasCurrentInspectionData()
+        ) {
+
+            const confirmed =
+                confirm(
+                    "Existe uma inspeção em andamento.\n\n" +
+                    "Deseja substituí-la pelo arquivo importado?"
+                );
+
+
+            if (!confirmed) {
+
+                return;
+
+            }
+
+        }
+
+
+        /*
+         * Carrega configuração.
+         */
+
+        const response =
+            await fetch(
+                selected.arquivo,
+                {
+                    cache: "no-cache"
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Não foi possível carregar o checklist."
+            );
+
+        }
+
+
+        config =
+            await response.json();
+
+
+        checklist =
+            config.perguntas.map(
+                () => ({
+
+                    answer: null,
+
+                    photo: null
+
+                })
+            );
+
+
+        /*
+         * Renderiza.
+         */
+
+        document
+            .getElementById(
+                "checklistSelect"
+            )
+            .value =
+            config.id;
+
+
+        document
+            .querySelector(
+                ".header-title"
+            )
+            .textContent =
+            config.nome;
+
+
+        document
+            .querySelector(
+                ".header-subtitle"
+            )
+            .textContent =
+            config.descricao ||
+            "Checklist de inspeção";
+
+
+        renderQuestions();
+
+
+        setChecklistVisibility(
+            true
+        );
+
+
+        /*
+         * Dados.
+         */
+
+        document
+            .getElementById(
+                "responsavel"
+            )
+            .value =
+            data.responsavel ||
+            "";
+
+
+        document
+            .getElementById(
+                "turno"
+            )
+            .value =
+            data.turno ||
+            "";
+
+
+        document
+            .getElementById(
+                "lote"
+            )
+            .value =
+            data.lote ||
+            "";
+
+
+        document
+            .getElementById(
+                "qtdProduzidos"
+            )
+            .value =
+            data.qtdProduzidos ??
+            "";
+
+
+        document
+            .getElementById(
+                "qtdNaoConformes"
+            )
+            .value =
+            data.qtdNaoConformes ??
+            "";
+
+
+        document
+            .getElementById(
+                "qtdNokAuditoria"
+            )
+            .value =
+            data.qtdNokAuditoria ??
+            "";
+
+
+        /*
+         * Respostas e fotos.
+         */
+
+        data.checklist.forEach(
+            (
+                item,
+                index
+            ) => {
+
+                if (
+                    !checklist[index]
+                ) {
+
+                    return;
+
+                }
+
+
+                checklist[index].answer =
+                    item.resultado ??
+                    item.answer ??
+                    null;
+
+
+                checklist[index].photo =
+                    item.foto ??
+                    item.photo ??
+                    null;
+
+            }
+        );
+
+
+        restoreChecklistVisual();
+
+
+        updateProgress();
+
+
+        await saveCurrentState();
+
+
+        alert(
+            "Inspeção carregada com sucesso."
+        );
+
+
+        window.scrollTo({
+
+            top: 0,
+
+            behavior: "smooth"
+
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+
+        alert(
+            "Não foi possível carregar a inspeção.\n\n" +
+            error.message
+        );
+
+    }
+
+    finally {
+
+        input.value = "";
+
+    }
+
+}
+
+
+/* ============================================================
+   NOVA INSPEÇÃO
+============================================================ */
+
+async function newInspection() {
+
+    if (
+        hasCurrentInspectionData()
+    ) {
+
+        const confirmed =
+            confirm(
+                "Existe uma inspeção em andamento.\n\n" +
+                "Todos os dados não salvos em arquivo serão removidos.\n\n" +
+                "Deseja realmente iniciar uma nova inspeção?"
+            );
+
+
+        if (!confirmed) {
+
+            return;
+
+        }
+
+    }
+
+
+    try {
+
+        await clearInspectionState();
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+    }
+
+
+    config = null;
+
+    checklist = [];
+
+
+    clearFormFields();
+
+
+    document
+        .getElementById(
+            "checklistSelect"
+        )
+        .value = "";
+
+
+    document
+        .querySelector(
+            ".header-title"
+        )
+        .textContent =
+        "Controle de Qualidade";
+
+
+    document
+        .querySelector(
+            ".header-subtitle"
+        )
+        .textContent =
+        "Selecione um checklist para iniciar";
+
+
+    document
+        .getElementById(
+            "questions"
+        )
+        .innerHTML = "";
+
+
+    setChecklistVisibility(
+        false
+    );
+
+
+    updateProgress();
+
+
+    hideWarning();
+
+
+    window.scrollTo({
+
+        top: 0,
+
+        behavior: "smooth"
+
+    });
+
+}
+
+
+/* ============================================================
+   EXCEL
+============================================================ */
 
 function generateExcel() {
 
-    if (
-        !validateChecklist()
-    ) {
+    if (!validateChecklist()) {
+
         return;
+
+    }
+
+
+    if (
+        typeof XLSX ===
+        "undefined"
+    ) {
+
+        alert(
+            "A biblioteca Excel não foi carregada.\n\n" +
+            "Verifique sua conexão com a internet."
+        );
+
+        return;
+
     }
 
 
@@ -777,12 +2521,17 @@ function generateExcel() {
 
         [
             "Checklist",
-            config.nome
+            data.checklistName
         ],
 
         [
             "Responsável",
             data.responsavel
+        ],
+
+        [
+            "Turno",
+            data.turno
         ],
 
         [
@@ -796,6 +2545,31 @@ function generateExcel() {
         ],
 
         [],
+
+        [
+            "REGISTRO DO TURNO"
+        ],
+
+        [
+            "QTD Produzidos",
+            data.qtdProduzidos
+        ],
+
+        [
+            "QTD Peças Não Conformes",
+            data.qtdNaoConformes
+        ],
+
+        [
+            "QTD NOK Auditoria Processo",
+            data.qtdNokAuditoria
+        ],
+
+        [],
+
+        [
+            "CHECKLIST"
+        ],
 
         [
             "Nº",
@@ -844,243 +2618,106 @@ function generateExcel() {
     worksheet["!cols"] = [
 
         {
-            wch: 6
+            wch: 8
         },
 
         {
-            wch: 70
+            wch: 80
         },
 
         {
-            wch: 15
+            wch: 18
         },
 
         {
-            wch: 10
+            wch: 12
         }
 
     ];
 
 
     XLSX.utils.book_append_sheet(
+
         workbook,
+
         worksheet,
+
         "Checklist"
+
     );
 
 
     XLSX.writeFile(
+
         workbook,
-        "controle_qualidade.xlsx"
+
+        `controle_qualidade_${sanitizeFileName(
+            data.checklistName
+        )}_${formatFileDate(
+            new Date()
+        )}.xlsx`
+
     );
 
 }
 
 
-/*
- * ============================================================
- * DATA DO ARQUIVO
- * ============================================================
- */
+/* ============================================================
+   FINALIZAR
+============================================================ */
 
-function formatFileDate() {
+async function finishInspection() {
 
-    const now =
-        new Date();
+    if (!validateChecklist()) {
 
+        return;
 
-    const year =
-        now.getFullYear();
+    }
 
 
-    const month =
-        String(
-            now.getMonth() + 1
-        ).padStart(
-            2,
-            "0"
+    generateExcel();
+
+
+    const newInspectionConfirmed =
+        confirm(
+            "Inspeção finalizada.\n\n" +
+            "O Excel foi gerado.\n\n" +
+            "Deseja iniciar uma nova inspeção?"
         );
 
 
-    const day =
-        String(
-            now.getDate()
-        ).padStart(
-            2,
-            "0"
-        );
+    if (
+        newInspectionConfirmed
+    ) {
 
+        await newInspection();
 
-    const hour =
-        String(
-            now.getHours()
-        ).padStart(
-            2,
-            "0"
-        );
-
-
-    const minute =
-        String(
-            now.getMinutes()
-        ).padStart(
-            2,
-            "0"
-        );
-
-
-    const second =
-        String(
-            now.getSeconds()
-        ).padStart(
-            2,
-            "0"
-        );
-
-
-    return `${year}-${month}-${day}_${hour}-${minute}-${second}`;
+    }
 
 }
 
 
-/*
- * ============================================================
- * CARREGAR LOGO
- * ============================================================
- */
-
-function loadImageAsDataURL(
-    src
-) {
-
-    return new Promise(
-        (
-            resolve,
-            reject
-        ) => {
-
-            const image =
-                new Image();
-
-
-            image.onload =
-                function() {
-
-                    try {
-
-                        const canvas =
-                            document.createElement(
-                                "canvas"
-                            );
-
-
-                        canvas.width =
-                            image.naturalWidth;
-
-
-                        canvas.height =
-                            image.naturalHeight;
-
-
-                        const context =
-                            canvas.getContext(
-                                "2d"
-                            );
-
-
-                        if (!context) {
-
-                            reject(
-                                new Error(
-                                    "Canvas não disponível."
-                                )
-                            );
-
-                            return;
-
-                        }
-
-
-                        context.drawImage(
-                            image,
-                            0,
-                            0
-                        );
-
-
-                        resolve({
-
-                            data:
-                                canvas.toDataURL(
-                                    "image/png"
-                                ),
-
-                            width:
-                                image.naturalWidth,
-
-                            height:
-                                image.naturalHeight
-
-                        });
-
-                    }
-
-                    catch (error) {
-
-                        reject(
-                            error
-                        );
-
-                    }
-
-                };
-
-
-            image.onerror =
-                function() {
-
-                    reject(
-                        new Error(
-                            `Não foi possível carregar ${src}`
-                        )
-                    );
-
-                };
-
-
-            image.src =
-                src;
-
-        }
-    );
-
-}
-
-
-/*
- * ============================================================
- * PDF
- * ============================================================
- */
+/* ============================================================
+   PDF
+============================================================ */
 
 async function generatePDF() {
 
-    if (
-        !validateChecklist()
-    ) {
+    if (!validateChecklist()) {
+
         return;
+
     }
 
 
     if (
-        typeof window.jspdf ===
-            "undefined" ||
-        typeof window.jspdf.jsPDF ===
-            "undefined"
+        !window.jspdf ||
+        !window.jspdf.jsPDF
     ) {
 
-        showWarning(
-            "A biblioteca de PDF não foi carregada."
+        alert(
+            "A biblioteca PDF não foi carregada.\n\n" +
+            "Verifique sua conexão com a internet."
         );
 
         return;
@@ -1124,624 +2761,64 @@ async function generatePDF() {
                 .getHeight();
 
 
-        const margin =
-            15;
-
-
-        const contentWidth =
-            pageWidth -
-            margin * 2;
-
-
-        const colors = {
-
-            dark:
-                [28, 35, 42],
-
-            gray:
-                [105, 112, 120],
-
-            light:
-                [247, 248, 249],
-
-            border:
-                [215, 219, 223],
-
-            white:
-                [255, 255, 255],
-
-            green:
-                [31, 132, 88],
-
-            red:
-                [190, 55, 55],
-
-            orange:
-                [211, 132, 32]
-
-        };
-
-
-        let y =
-            15;
+        let y = 20;
 
 
         /*
          * ====================================================
-         * LOGO
+         * CABEÇALHO
          * ====================================================
          */
 
-        let logoData =
-            null;
-
-
-        let logoWidth =
-            25;
-
-
-        let logoHeight =
-            20;
-
-
-        try {
-
-            const logo =
-                await loadImageAsDataURL(
-                    "src/logo.png"
-                );
-
-
-            logoData =
-                logo.data;
-
-
-            logoWidth =
-                25;
-
-
-            logoHeight =
-                (
-                    logo.height /
-                    logo.width
-                ) *
-                logoWidth;
-
-        }
-
-        catch (error) {
-
-            console.warn(
-                "Logo não encontrado. Continuando sem logo."
-            );
-
-        }
+        drawPDFHeader(
+            pdf,
+            pageWidth
+        );
 
 
         /*
-         * ====================================================
-         * FUNÇÕES AUXILIARES
-         * ====================================================
+         * Logo
          */
 
-        function fill(color) {
-
-            pdf.setFillColor(
-                ...color
-            );
-
-        }
-
-
-        function textColor(color) {
-
-            pdf.setTextColor(
-                ...color
-            );
-
-        }
-
-
-        function drawColor(color) {
-
-            pdf.setDrawColor(
-                ...color
-            );
-
-        }
-
-
-        function roundedBox(
-            x,
-            top,
-            width,
-            height,
-            color,
-            radius = 1.5
-        ) {
-
-            fill(color);
-
-            drawColor(color);
-
-            pdf.roundedRect(
-                x,
-                top,
-                width,
-                height,
-                radius,
-                radius,
-                "F"
-            );
-
-        }
-
-
-        function footer(
-            pageNumber
-        ) {
-
-            const footerY =
-                pageHeight - 8;
-
-
-            drawColor(
-                colors.border
-            );
-
-
-            pdf.setLineWidth(
-                0.25
-            );
-
-
-            pdf.line(
-                margin,
-                footerY - 3,
-                pageWidth - margin,
-                footerY - 3
-            );
-
-
-            pdf.setFont(
-                "helvetica",
-                "normal"
-            );
-
-
-            pdf.setFontSize(
-                7.5
-            );
-
-
-            textColor(
-                colors.gray
-            );
-
-
-            pdf.text(
-                "Relatório de Controle de Qualidade",
-                margin,
-                footerY
-            );
-
-
-            pdf.text(
-                `Página ${pageNumber}`,
-                pageWidth - margin,
-                footerY,
-                {
-                    align:
-                        "right"
-                }
-            );
-
-        }
-
-
-        function ensureSpace(
-            height
-        ) {
-
-            if (
-                y + height >
-                pageHeight - 17
-            ) {
-
-                footer(
-                    pdf.getNumberOfPages()
-                );
-
-
-                pdf.addPage();
-
-
-                y =
-                    16;
-
-            }
-
-        }
+        await addLogoToPDF(
+            pdf
+        );
 
 
         /*
-         * ====================================================
-         * CABEÇALHO COM GRADIENTE
-         * ====================================================
+         * Título
          */
 
-        const headerHeight =
-            30;
+        pdf.setTextColor(
+            40,
+            48,
+            56
+        );
 
 
-        const gradientSteps =
-            30;
-
-
-        const startColor =
-            [200, 188, 166];
-
-
-        const endColor =
-            [253, 248, 236];
-
-
-        for (
-            let i = 0;
-            i < gradientSteps;
-            i++
-        ) {
-
-            const t =
-                i /
-                (
-                    gradientSteps - 1
-                );
-
-
-            const r =
-                Math.round(
-                    startColor[0] +
-                    (
-                        endColor[0] -
-                        startColor[0]
-                    ) * t
-                );
-
-
-            const g =
-                Math.round(
-                    startColor[1] +
-                    (
-                        endColor[1] -
-                        startColor[1]
-                    ) * t
-                );
-
-
-            const b =
-                Math.round(
-                    startColor[2] +
-                    (
-                        endColor[2] -
-                        startColor[2]
-                    ) * t
-                );
-
-
-            pdf.setFillColor(
-                r,
-                g,
-                b
-            );
-
-
-            pdf.rect(
-                margin,
-                y +
-                (
-                    headerHeight /
-                    gradientSteps
-                ) * i,
-                contentWidth,
-                headerHeight /
-                    gradientSteps +
-                    0.2,
-                "F"
-            );
-
-        }
-
-
-        /*
-         * ====================================================
-         * LOGO
-         * ====================================================
-         */
-
-        if (logoData) {
-
-            try {
-
-                pdf.addImage(
-
-                    logoData,
-
-                    "PNG",
-
-                    margin + 5,
-
-                    y + 5,
-
-                    logoWidth,
-
-                    logoHeight,
-
-                    undefined,
-
-                    "FAST"
-
-                );
-
-            }
-
-            catch (error) {
-
-                console.warn(
-                    "Erro ao inserir logo:",
-                    error
-                );
-
-            }
-
-        }
-
-
-        /*
-         * ====================================================
-         * TÍTULO
-         * ====================================================
-         */
-
-        const titleX =
-            logoData
-                ? margin + 36
-                : margin + 7;
+        pdf.setFontSize(
+            18
+        );
 
 
         pdf.setFont(
             "helvetica",
             "bold"
-        );
-
-
-        pdf.setFontSize(
-            16
-        );
-
-
-        textColor(
-            [55, 48, 40]
         );
 
 
         pdf.text(
             "RELATÓRIO DE CONTROLE DE QUALIDADE",
-            titleX,
-            y + 11
-        );
-
-
-        pdf.setFont(
-            "helvetica",
-            "normal"
-        );
-
-
-        pdf.setFontSize(
-            8.5
-        );
-
-
-        textColor(
-            [105, 96, 84]
-        );
-
-
-        pdf.text(
-            config.nome,
-            titleX,
-            y + 18
-        );
-
-
-        pdf.text(
-            "Documento de inspeção",
-            titleX,
-            y + 24
-        );
-
-
-        y +=
-            37;
-
-
-        /*
-         * ====================================================
-         * IDENTIFICAÇÃO
-         * ====================================================
-         */
-
-        pdf.setFont(
-            "helvetica",
-            "bold"
-        );
-
-
-        pdf.setFontSize(
-            10
-        );
-
-
-        textColor(
-            colors.dark
-        );
-
-
-        pdf.text(
-            "IDENTIFICAÇÃO DA INSPEÇÃO",
-            margin,
+            15,
             y
         );
 
 
-        y +=
-            5;
-
-
-        const gap =
-            4;
-
-
-        const boxWidth =
-            (
-                contentWidth -
-                gap
-            ) / 2;
-
-
-        const boxHeight =
-            18;
-
-
-        const info = [
-
-            [
-                margin,
-                "RESPONSÁVEL",
-                data.responsavel ||
-                "Não informado"
-            ],
-
-            [
-                margin +
-                    boxWidth +
-                    gap,
-                "PRODUTO / LOTE",
-                data.lote ||
-                "Não informado"
-            ]
-
-        ];
-
-
-        info.forEach(
-            (
-                [x, label, value]
-            ) => {
-
-                roundedBox(
-                    x,
-                    y,
-                    boxWidth,
-                    boxHeight,
-                    colors.light
-                );
-
-
-                pdf.setFont(
-                    "helvetica",
-                    "bold"
-                );
-
-
-                pdf.setFontSize(
-                    6.5
-                );
-
-
-                textColor(
-                    colors.gray
-                );
-
-
-                pdf.text(
-                    label,
-                    x + 4,
-                    y + 6
-                );
-
-
-                pdf.setFont(
-                    "helvetica",
-                    "normal"
-                );
-
-
-                pdf.setFontSize(
-                    9
-                );
-
-
-                textColor(
-                    colors.dark
-                );
-
-
-                const valueLines =
-                    pdf.splitTextToSize(
-                        value,
-                        boxWidth - 8
-                    );
-
-
-                pdf.text(
-                    valueLines.slice(
-                        0,
-                        1
-                    ),
-                    x + 4,
-                    y + 12
-                );
-
-            }
-        );
-
-
-        y +=
-            boxHeight +
-            4;
-
-
-        roundedBox(
-            margin,
-            y,
-            contentWidth,
-            15,
-            colors.light
-        );
-
-
-        pdf.setFont(
-            "helvetica",
-            "bold"
-        );
+        y += 8;
 
 
         pdf.setFontSize(
-            6.5
-        );
-
-
-        textColor(
-            colors.gray
-        );
-
-
-        pdf.text(
-            "DATA DA INSPEÇÃO",
-            margin + 4,
-            y + 6
+            11
         );
 
 
@@ -1751,99 +2828,73 @@ async function generatePDF() {
         );
 
 
-        pdf.setFontSize(
-            9
-        );
-
-
-        textColor(
-            colors.dark
-        );
-
-
-        pdf.text(
-            data.date,
-            margin + 4,
-            y + 11.5
-        );
-
-
-        const hasNotOk =
-            data.checklist.some(
-                item =>
-                    item.resultado ===
-                    "NÃO OK"
-            );
-
-
-        const statusText =
-            hasNotOk
-                ? "NÃO CONFORME"
-                : "CONFORME";
-
-
-        const statusColor =
-            hasNotOk
-                ? colors.red
-                : colors.green;
-
-
-        pdf.setFont(
-            "helvetica",
-            "bold"
-        );
-
-
-        pdf.setFontSize(
-            6.5
-        );
-
-
-        textColor(
-            colors.gray
+        pdf.setTextColor(
+            90,
+            96,
+            102
         );
 
 
         pdf.text(
-            "STATUS",
-            margin +
-                contentWidth -
-                38,
-            y + 6
+            data.checklistName,
+            15,
+            y
         );
 
 
-        pdf.setFontSize(
-            8.5
-        );
-
-
-        textColor(
-            statusColor
-        );
-
-
-        pdf.text(
-            statusText,
-            margin +
-                contentWidth -
-                38,
-            y + 11.5
-        );
-
-
-        y +=
-            23;
+        y += 12;
 
 
         /*
          * ====================================================
-         * RESUMO
+         * INFORMAÇÕES
          * ====================================================
          */
 
-        const total =
-            data.checklist.length;
+        drawPDFInfoBox(
+            pdf,
+            data,
+            y,
+            pageWidth
+        );
+
+
+        y += 46;
+
+
+        /*
+         * ====================================================
+         * RESUMO DO TURNO
+         * ====================================================
+         */
+
+        drawPDFSectionTitle(
+            pdf,
+            "REGISTRO DO TURNO",
+            15,
+            y
+        );
+
+
+        y += 9;
+
+
+        const produced =
+            Number(
+                data.qtdProduzidos
+            ) || 0;
+
+
+        const nonConforming =
+            Number(
+                data.qtdNaoConformes
+            ) || 0;
+
+
+        const auditNok =
+            Number(
+                data.qtdNokAuditoria
+            ) || 0;
 
 
         const okCount =
@@ -1854,7 +2905,7 @@ async function generatePDF() {
             ).length;
 
 
-        const notOkCount =
+        const nokCount =
             data.checklist.filter(
                 item =>
                     item.resultado ===
@@ -1869,311 +2920,130 @@ async function generatePDF() {
             ).length;
 
 
-        const summaryGap =
-            3;
-
-
-        const summaryWidth =
-            (
-                contentWidth -
-                summaryGap * 3
-            ) / 4;
-
-
-        const summary = [
-
-            [
-                "ITENS",
-                total,
-                colors.dark
-            ],
-
-            [
-                "OK",
-                okCount,
-                colors.green
-            ],
-
-            [
-                "NÃO OK",
-                notOkCount,
-                colors.red
-            ],
-
-            [
-                "FOTOS",
-                photoCount,
-                colors.orange
-            ]
-
-        ];
-
-
-        summary.forEach(
-            (
+        y =
+            drawPDFSummaryCards(
+                pdf,
                 [
-                    label,
-                    value,
-                    color
+                    [
+                        "PRODUZIDOS",
+                        String(
+                            produced
+                        )
+                    ],
+
+                    [
+                        "NÃO CONFORMES",
+                        String(
+                            nonConforming
+                        )
+                    ],
+
+                    [
+                        "NOK AUDITORIA",
+                        String(
+                            auditNok
+                        )
+                    ],
+
+                    [
+                        "CHECKLIST",
+                        `${okCount} OK / ${nokCount} NOK`
+                    ]
                 ],
-                index
-            ) => {
-
-                const x =
-                    margin +
-                    index *
-                    (
-                        summaryWidth +
-                        summaryGap
-                    );
+                y,
+                pageWidth
+            );
 
 
-                roundedBox(
-                    x,
-                    y,
-                    summaryWidth,
-                    19,
-                    colors.light
-                );
-
-
-                pdf.setFont(
-                    "helvetica",
-                    "bold"
-                );
-
-
-                pdf.setFontSize(
-                    6.5
-                );
-
-
-                textColor(
-                    colors.gray
-                );
-
-
-                pdf.text(
-                    label,
-                    x + 4,
-                    y + 6
-                );
-
-
-                pdf.setFontSize(
-                    13
-                );
-
-
-                textColor(
-                    color
-                );
-
-
-                pdf.text(
-                    String(value),
-                    x + 4,
-                    y + 15
-                );
-
-            }
-        );
-
-
-        y +=
-            28;
+        y += 12;
 
 
         /*
          * ====================================================
-         * RESULTADOS
+         * RESULTADO
          * ====================================================
          */
 
-        pdf.setFont(
-            "helvetica",
-            "bold"
+        const status =
+            nokCount > 0
+                ? "NÃO CONFORME"
+                : "CONFORME";
+
+
+        drawPDFStatus(
+            pdf,
+            status,
+            y,
+            pageWidth
         );
 
 
-        pdf.setFontSize(
-            10
-        );
+        y += 18;
 
 
-        textColor(
-            colors.dark
-        );
+        /*
+         * ====================================================
+         * CHECKLIST
+         * ====================================================
+         */
 
-
-        pdf.text(
+        drawPDFSectionTitle(
+            pdf,
             "RESULTADO DA INSPEÇÃO",
-            margin,
+            15,
             y
         );
 
 
-        y +=
-            5;
+        y += 10;
 
 
-        data.checklist.forEach(
-            (
-                item,
-                index
-            ) => {
-
-                const questionLines =
-                    pdf.splitTextToSize(
-                        item.pergunta,
-                        contentWidth -
-                            48
-                    );
-
-
-                const rowHeight =
-                    Math.max(
-                        16,
-                        questionLines.length *
-                            4.2 +
-                            8
-                    );
-
-
-                ensureSpace(
-                    rowHeight + 2
-                );
-
-
-                if (
-                    index % 2 === 0
-                ) {
-
-                    roundedBox(
-                        margin,
-                        y,
-                        contentWidth,
-                        rowHeight,
-                        [248, 249, 250],
-                        1
-                    );
-
-                }
-
-
-                pdf.setFont(
-                    "helvetica",
-                    "bold"
-                );
-
-
-                pdf.setFontSize(
-                    8
-                );
-
-
-                textColor(
-                    colors.gray
-                );
-
-
-                pdf.text(
-                    String(
-                        index + 1
-                    ).padStart(
-                        2,
-                        "0"
-                    ),
-                    margin + 4,
-                    y + 7
-                );
-
-
-                pdf.setFont(
-                    "helvetica",
-                    "normal"
-                );
-
-
-                pdf.setFontSize(
-                    8.5
-                );
-
-
-                textColor(
-                    colors.dark
-                );
-
-
-                pdf.text(
-                    questionLines,
-                    margin + 13,
-                    y + 6
-                );
-
-
-                const resultColor =
-                    item.resultado ===
-                    "OK"
-
-                        ? colors.green
-
-                        : colors.red;
-
-
-                pdf.setFont(
-                    "helvetica",
-                    "bold"
-                );
-
-
-                pdf.setFontSize(
-                    7.5
-                );
-
-
-                textColor(
-                    resultColor
-                );
-
-
-                pdf.text(
-                    item.resultado,
-                    margin +
-                        contentWidth -
-                        29,
-                    y + 7
-                );
-
-
-                y +=
-                    rowHeight +
-                    2;
-
-            }
-        );
-
-
-        /*
-         * ====================================================
-         * FOTOS
-         * ====================================================
-         */
-
-        const photos =
-            data.checklist.filter(
-                item =>
-                    !!item.foto
-            );
-
-
-        if (
-            photos.length > 0
+        for (
+            let i = 0;
+            i < data.checklist.length;
+            i++
         ) {
 
-            ensureSpace(
-                20
-            );
+            const item =
+                data.checklist[i];
+
+
+            const question =
+                `${i + 1}. ${item.pergunta}`;
+
+
+            const lines =
+                pdf.splitTextToSize(
+                    question,
+                    150
+                );
+
+
+            const itemHeight =
+                (
+                    lines.length *
+                    4.5
+                ) + 14;
+
+
+            if (
+                y + itemHeight >
+                pageHeight - 25
+            ) {
+
+                addPDFFooter(
+                    pdf,
+                    pageWidth,
+                    pageHeight
+                );
+
+
+                pdf.addPage();
+
+
+                y = 20;
+
+            }
 
 
             pdf.setFont(
@@ -2183,262 +3053,194 @@ async function generatePDF() {
 
 
             pdf.setFontSize(
-                10
+                9
             );
 
 
-            textColor(
-                colors.dark
+            pdf.setTextColor(
+                45,
+                52,
+                60
             );
 
 
             pdf.text(
-                "EVIDÊNCIAS FOTOGRÁFICAS",
-                margin,
+                lines,
+                15,
                 y
             );
 
 
             y +=
-                6;
+                lines.length *
+                4.5;
 
 
-            const photoWidth =
-                82;
+            /*
+             * Resultado
+             */
+
+            pdf.setFont(
+                "helvetica",
+                "bold"
+            );
 
 
-            const photoHeight =
-                58;
-
-
-            const photoGap =
-                6;
-
-
-            photos.forEach(
-                (
-                    item,
-                    photoIndex
-                ) => {
-
-                    const column =
-                        photoIndex % 2;
-
-
-                    if (
-                        column === 0
-                    ) {
-
-                        ensureSpace(
-                            photoHeight +
-                                15
-                        );
-
-                    }
-
-
-                    const x =
-                        column === 0
-
-                            ? margin
-
-                            : margin +
-                              photoWidth +
-                              photoGap;
-
-
-                    const topY =
-                        y;
-
-
-                    roundedBox(
-                        x,
-                        topY,
-                        photoWidth,
-                        photoHeight + 10,
-                        [248, 249, 250],
-                        1.5
-                    );
-
-
-                    try {
-
-                        pdf.addImage(
-                            item.foto,
-                            "JPEG",
-                            x + 3,
-                            topY + 3,
-                            photoWidth - 6,
-                            photoHeight - 6,
-                            undefined,
-                            "FAST"
-                        );
-
-                    }
-
-                    catch (error) {
-
-                        console.error(
-                            "Erro ao inserir foto:",
-                            error
-                        );
-
-                    }
-
-
-                    const originalIndex =
-                        data.checklist.indexOf(
-                            item
-                        );
-
-
-                    pdf.setFont(
-                        "helvetica",
-                        "bold"
-                    );
-
-
-                    pdf.setFontSize(
-                        7
-                    );
-
-
-                    textColor(
-                        colors.gray
-                    );
-
-
-                    pdf.text(
-                        `Item ${
-                            originalIndex + 1
-                        }`,
-                        x + 4,
-                        topY +
-                            photoHeight +
-                            6
-                    );
-
-
-                    if (
-                        column === 1
-                    ) {
-
-                        y +=
-                            photoHeight +
-                            14;
-
-                    }
-
-                }
+            pdf.setFontSize(
+                9
             );
 
 
             if (
-                photos.length % 2 !== 0
+                item.resultado ===
+                "OK"
             ) {
 
-                y +=
-                    photoHeight +
-                    14;
+                pdf.setTextColor(
+                    30,
+                    110,
+                    70
+                );
 
             }
 
+            else {
+
+                pdf.setTextColor(
+                    180,
+                    55,
+                    45
+                );
+
+            }
+
+
+            pdf.text(
+                `Resultado: ${item.resultado}`,
+                20,
+                y + 2
+            );
+
+
+            /*
+             * Foto
+             */
+
+            if (item.foto) {
+
+                y += 7;
+
+
+                if (
+                    y + 55 >
+                    pageHeight - 25
+                ) {
+
+                    addPDFFooter(
+                        pdf,
+                        pageWidth,
+                        pageHeight
+                    );
+
+
+                    pdf.addPage();
+
+
+                    y = 20;
+
+                }
+
+
+                try {
+
+                    const image =
+                        await prepareImageForPDF(
+                            item.foto
+                        );
+
+
+                    const dimensions =
+                        calculateImageDimensions(
+                            image.width,
+                            image.height,
+                            70,
+                            50
+                        );
+
+
+                    pdf.addImage(
+
+                        image.data,
+
+                        "JPEG",
+
+                        20,
+
+                        y,
+
+                        dimensions.width,
+
+                        dimensions.height
+
+                    );
+
+
+                    y +=
+                        dimensions.height +
+                        5;
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        "Erro ao adicionar foto:",
+                        error
+                    );
+
+                }
+
+            }
+
+
+            y += 8;
+
+
+            /*
+             * Linha divisória
+             */
+
+            pdf.setDrawColor(
+                220,
+                223,
+                226
+            );
+
+
+            pdf.line(
+                15,
+                y,
+                pageWidth - 15,
+                y
+            );
+
+
+            y += 5;
+
         }
 
 
         /*
          * ====================================================
-         * FINAL
+         * RODAPÉ FINAL
          * ====================================================
          */
 
-        ensureSpace(
-            22
+        addPDFFooter(
+            pdf,
+            pageWidth,
+            pageHeight
         );
-
-
-        drawColor(
-            colors.border
-        );
-
-
-        pdf.setLineWidth(
-            0.3
-        );
-
-
-        pdf.line(
-            margin,
-            y,
-            pageWidth - margin,
-            y
-        );
-
-
-        y +=
-            7;
-
-
-        pdf.setFont(
-            "helvetica",
-            "normal"
-        );
-
-
-        pdf.setFontSize(
-            7.5
-        );
-
-
-        textColor(
-            colors.gray
-        );
-
-
-        pdf.text(
-            "Documento gerado automaticamente pelo sistema de Controle de Qualidade.",
-            margin,
-            y
-        );
-
-
-        pdf.text(
-            `Checklist: ${
-                config.id || "-"
-            } | Versão: ${
-                config.versao || 1
-            }`,
-            margin,
-            y + 5
-        );
-
-
-        /*
-         * ====================================================
-         * RODAPÉ
-         * ====================================================
-         */
-
-        const totalPages =
-            pdf.getNumberOfPages();
-
-
-        for (
-            let page = 1;
-            page <= totalPages;
-            page++
-        ) {
-
-            pdf.setPage(
-                page
-            );
-
-
-            footer(
-                page
-            );
-
-        }
 
 
         /*
@@ -2448,13 +3250,14 @@ async function generatePDF() {
          */
 
         pdf.save(
-            `controle_qualidade_${
-                formatFileDate()
-            }.pdf`
+
+            `controle_qualidade_${sanitizeFileName(
+                data.checklistName
+            )}_${formatFileDate(
+                new Date()
+            )}.pdf`
+
         );
-
-
-        hideWarning();
 
     }
 
@@ -2466,301 +3269,123 @@ async function generatePDF() {
         );
 
 
-        showWarning(
-            "Não foi possível gerar o PDF. Veja o console do navegador para mais detalhes."
-        );
-
-    }
-
-}
-
-
-/*
- * ============================================================
- * SALVAR ESTADO
- * ============================================================
- */
-
-async function saveCurrentState() {
-
-    if (!config) {
-        return;
-    }
-
-
-    const state = {
-
-        version:
-            1,
-
-        savedAt:
-            new Date()
-                .toISOString(),
-
-        checklistName:
-            config.nome,
-
-        responsavel:
-            document
-                .getElementById(
-                    "responsavel"
-                )
-                .value,
-
-        lote:
-            document
-                .getElementById(
-                    "lote"
-                )
-                .value,
-
-        checklist:
-            checklist.map(
-                item => ({
-
-                    answer:
-                        item.answer,
-
-                    photo:
-                        item.photo
-
-                })
-            )
-
-    };
-
-
-    try {
-
-        await saveInspectionState(
-            state
-        );
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Erro ao salvar inspeção:",
-            error
-        );
-
-    }
-
-}
-
-
-/*
- * ============================================================
- * AGENDAMENTO DO SAVE
- * ============================================================
- */
-
-function scheduleSave() {
-
-    clearTimeout(
-        saveTimer
-    );
-
-
-    saveTimer =
-        setTimeout(
-            () => {
-
-                saveCurrentState();
-
-            },
-            300
-        );
-
-}
-
-
-/*
- * ============================================================
- * FINALIZAR
- * ============================================================
- */
-
-async function finishInspection() {
-
-    if (
-        !validateChecklist()
-    ) {
-        return;
-    }
-
-
-    generateExcel();
-
-
-    const newInspection =
-        confirm(
-            "Inspeção finalizada.\n\n" +
-            "Deseja iniciar uma nova inspeção?"
-        );
-
-
-    if (
-        newInspection
-    ) {
-
-        await clearInspectionState();
-
-
-        location.reload();
-
-    }
-
-}
-
-/*
- * ============================================================
- * EXPORTAR INSPEÇÃO
- * ============================================================
- */
-
-async function exportInspection() {
-
-    if (!config) {
-
         alert(
-            "O sistema ainda não terminou de carregar."
+            "Erro ao gerar o PDF.\n\n" +
+            error.message
         );
 
-        return;
-
     }
+
+}
+
+
+/* ============================================================
+   CABEÇALHO PDF
+============================================================ */
+
+function drawPDFHeader(
+    pdf,
+    pageWidth
+) {
+
+    const height =
+        7;
 
 
     /*
-     * Garante que o estado mais recente
-     * esteja salvo antes de exportar.
+     * Simula gradiente:
+     *
+     * rgb(200,188,166)
+     * →
+     * rgb(253,248,236)
      */
 
-    await saveCurrentState();
-
-
-    const state = {
-
-        version: 1,
-
-        exportedAt:
-            new Date().toISOString(),
-
-        checklistName:
-            config.nome,
-
-        checklistId:
-            config.id || null,
-
-        checklistVersion:
-            config.versao || 1,
-
-        responsavel:
-            document
-                .getElementById("responsavel")
-                .value
-                .trim(),
-
-        lote:
-            document
-                .getElementById("lote")
-                .value
-                .trim(),
-
-        checklist:
-            checklist.map(
-                (item, index) => ({
-
-                    id:
-                        config.perguntas[index]
-                            ?.id || null,
-
-                    answer:
-                        item.answer,
-
-                    photo:
-                        item.photo
-
-                })
-            )
-
+    const start = {
+        r: 200,
+        g: 188,
+        b: 166
     };
 
 
-    try {
+    const end = {
+        r: 253,
+        g: 248,
+        b: 236
+    };
 
-        const json =
-            JSON.stringify(
-                state
+
+    const steps = 40;
+
+
+    for (
+        let i = 0;
+        i < steps;
+        i++
+    ) {
+
+        const t =
+            i /
+            (steps - 1);
+
+
+        const r =
+            Math.round(
+                start.r +
+                (
+                    end.r -
+                    start.r
+                ) *
+                t
             );
 
 
-        const blob =
-            new Blob(
-                [json],
-                {
-                    type:
-                        "application/json"
-                }
+        const g =
+            Math.round(
+                start.g +
+                (
+                    end.g -
+                    start.g
+                ) *
+                t
             );
 
 
-        const url =
-            URL.createObjectURL(
-                blob
+        const b =
+            Math.round(
+                start.b +
+                (
+                    end.b -
+                    start.b
+                ) *
+                t
             );
 
 
-        const link =
-            document.createElement(
-                "a"
-            );
-
-
-        link.href =
-            url;
-
-
-        link.download =
-            `inspecao_${
-                formatFileDate()
-            }.json`;
-
-
-        document.body.appendChild(
-            link
+        pdf.setFillColor(
+            r,
+            g,
+            b
         );
 
 
-        link.click();
+        pdf.rect(
 
+            i *
+                (
+                    pageWidth /
+                    steps
+                ),
 
-        link.remove();
+            0,
 
+            pageWidth /
+                steps +
+                0.5,
 
-        URL.revokeObjectURL(
-            url
-        );
+            height,
 
+            "F"
 
-        console.log(
-            "Inspeção exportada."
-        );
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Erro ao exportar inspeção:",
-            error
-        );
-
-
-        alert(
-            "Não foi possível salvar a inspeção."
         );
 
     }
@@ -2768,603 +3393,935 @@ async function exportInspection() {
 }
 
 
-/*
- * ============================================================
- * IMPORTAR INSPEÇÃO
- * ============================================================
- */
+/* ============================================================
+   LOGO
+============================================================ */
 
-async function importInspection(
-    input
+function addLogoToPDF(
+    pdf
 ) {
 
-    const file =
-        input.files?.[0];
+    return new Promise(
+        resolve => {
 
+            const image =
+                new Image();
 
-    if (!file) {
-        return;
-    }
 
+            image.onload =
+                function() {
 
-    try {
+                    try {
 
-        const text =
-            await file.text();
+                        const maxWidth =
+                            30;
 
 
-        const imported =
-            JSON.parse(
-                text
-            );
+                        const maxHeight =
+                            15;
 
 
-        /*
-         * ====================================================
-         * VALIDAÇÃO BÁSICA
-         * ====================================================
-         */
+                        const dimensions =
+                            calculateImageDimensions(
 
-        if (
-            !imported ||
-            typeof imported !== "object"
-        ) {
+                                image.naturalWidth,
 
-            throw new Error(
-                "Arquivo inválido."
-            );
+                                image.naturalHeight,
 
-        }
+                                maxWidth,
 
+                                maxHeight
 
-        if (
-            !Array.isArray(
-                imported.checklist
-            )
-        ) {
+                            );
 
-            throw new Error(
-                "O arquivo não contém uma inspeção válida."
-            );
 
-        }
+                        pdf.addImage(
 
+                            image,
 
-        /*
-         * Verifica se pertence ao checklist atual
-         */
+                            "PNG",
 
-        if (
-            imported.checklistName &&
-            imported.checklistName !==
-                config.nome
-        ) {
+                            155,
 
-            const proceed =
-                confirm(
-                    "Esta inspeção pertence a outro checklist:\n\n" +
-                    imported.checklistName +
-                    "\n\n" +
-                    "O checklist atual é:\n\n" +
-                    config.nome +
-                    "\n\n" +
-                    "Deseja carregar mesmo assim?"
-                );
+                            10,
 
+                            dimensions.width,
 
-            if (!proceed) {
+                            dimensions.height
 
-                input.value =
-                    "";
-
-                return;
-
-            }
-
-        }
-
-
-        /*
-         * ====================================================
-         * CONFIRMAÇÃO
-         * ====================================================
-         */
-
-        const proceed =
-            confirm(
-                "Carregar esta inspeção?\n\n" +
-                "As respostas e fotos atuais serão substituídas."
-            );
-
-
-        if (!proceed) {
-
-            input.value =
-                "";
-
-            return;
-
-        }
-
-
-        /*
-         * ====================================================
-         * RESTAURAR CAMPOS
-         * ====================================================
-         */
-
-        document
-            .getElementById(
-                "responsavel"
-            )
-            .value =
-            imported.responsavel || "";
-
-
-        document
-            .getElementById(
-                "lote"
-            )
-            .value =
-            imported.lote || "";
-
-
-        /*
-         * ====================================================
-         * RESTAURAR CHECKLIST
-         * ====================================================
-         */
-
-        checklist =
-            config.perguntas.map(
-                (
-                    question,
-                    index
-                ) => {
-
-                    const importedItem =
-                        imported.checklist[
-                            index
-                        ];
-
-
-                    return {
-
-                        answer:
-                            importedItem?.answer ||
-                            null,
-
-                        photo:
-                            importedItem?.photo ||
-                            null
-
-                    };
-
-                }
-            );
-
-
-        /*
-         * ====================================================
-         * ATUALIZAR INTERFACE
-         * ====================================================
-         */
-
-        checklist.forEach(
-            (
-                item,
-                index
-            ) => {
-
-                const okButton =
-                    document.getElementById(
-                        `ok-${index}`
-                    );
-
-
-                const notOkButton =
-                    document.getElementById(
-                        `notok-${index}`
-                    );
-
-
-                const preview =
-                    document.getElementById(
-                        `preview-${index}`
-                    );
-
-
-                const image =
-                    document.getElementById(
-                        `image-${index}`
-                    );
-
-
-                const photoName =
-                    document.getElementById(
-                        `photo-name-${index}`
-                    );
-
-
-                /*
-                 * Resposta
-                 */
-
-                if (okButton) {
-
-                    okButton.classList.toggle(
-                        "active",
-                        item.answer === "OK"
-                    );
-
-                }
-
-
-                if (notOkButton) {
-
-                    notOkButton.classList.toggle(
-                        "active",
-                        item.answer === "NÃO OK"
-                    );
-
-                }
-
-
-                /*
-                 * Foto
-                 */
-
-                if (
-                    item.photo
-                ) {
-
-                    if (image) {
-
-                        image.src =
-                            item.photo;
+                        );
 
                     }
 
+                    catch (error) {
 
-                    if (preview) {
-
-                        preview.style.display =
-                            "block";
-
-                    }
-
-
-                    if (photoName) {
-
-                        photoName.textContent =
-                            "Foto carregada";
-
-                    }
-
-                }
-
-                else {
-
-                    if (image) {
-
-                        image.removeAttribute(
-                            "src"
+                        console.warn(
+                            "Não foi possível adicionar o logo:",
+                            error
                         );
 
                     }
 
 
-                    if (preview) {
+                    resolve();
 
-                        preview.style.display =
-                            "none";
-
-                    }
+                };
 
 
-                    if (photoName) {
+            image.onerror =
+                function() {
 
-                        photoName.textContent =
-                            "";
-
-                    }
-
-                }
-
-            }
-        );
+                    console.warn(
+                        "Logo não encontrado: src/logo.png"
+                    );
 
 
-        /*
-         * Atualiza progresso
-         */
+                    resolve();
 
-        updateProgress();
+                };
 
 
-        /*
-         * Salva imediatamente no IndexedDB.
-         * Assim, mesmo se o usuário recarregar
-         * a página depois do carregamento,
-         * a inspeção continuará lá.
-         */
+            image.src =
+                "src/logo.png";
 
-        await saveCurrentState();
-
-
-        /*
-         * Limpa mensagem de erro
-         */
-
-        hideWarning();
-
-
-        alert(
-            "Inspeção carregada com sucesso."
-        );
-
-
-        console.log(
-            "Inspeção importada:",
-            file.name
-        );
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Erro ao importar inspeção:",
-            error
-        );
-
-
-        alert(
-            "Não foi possível carregar o arquivo.\n\n" +
-            "Verifique se ele é um arquivo de inspeção válido."
-        );
-
-    }
-
-
-    /*
-     * Permite selecionar novamente
-     * o mesmo arquivo.
-     */
-
-    input.value =
-        "";
+        }
+    );
 
 }
 
 
-/*
- * ============================================================
- * NOVA INSPEÇÃO
- * ============================================================
- */
+/* ============================================================
+   DIMENSÕES PROPORCIONAIS
+============================================================ */
 
-async function newInspection() {
-
-    const hasData =
-        checklist.some(
-            item =>
-                item.answer !== null ||
-                !!item.photo
-        );
-
-
-    const responsavel =
-        document
-            .getElementById(
-                "responsavel"
-            )
-            .value
-            .trim();
-
-
-    const lote =
-        document
-            .getElementById(
-                "lote"
-            )
-            .value
-            .trim();
-
-
-    const hasHeaderData =
-        responsavel !== "" ||
-        lote !== "";
-
+function calculateImageDimensions(
+    originalWidth,
+    originalHeight,
+    maxWidth,
+    maxHeight
+) {
 
     if (
-        hasData ||
-        hasHeaderData
+        !originalWidth ||
+        !originalHeight
     ) {
 
-        const proceed =
-            confirm(
-                "Existe uma inspeção em andamento.\n\n" +
-                "Ao iniciar uma nova inspeção, " +
-                "as respostas e fotos atuais serão apagadas.\n\n" +
-                "Deseja continuar?"
-            );
+        return {
 
+            width:
+                maxWidth,
 
-        if (!proceed) {
-            return;
-        }
+            height:
+                maxHeight
+
+        };
 
     }
 
 
-    try {
+    const ratio =
+        Math.min(
 
-        await clearInspectionState();
+            maxWidth /
+                originalWidth,
 
+            maxHeight /
+                originalHeight
 
-        /*
-         * Limpa os dados atuais
-         */
-
-        document
-            .getElementById(
-                "responsavel"
-            )
-            .value =
-            "";
-
-
-        document
-            .getElementById(
-                "lote"
-            )
-            .value =
-            "";
-
-
-        checklist =
-            config.perguntas.map(
-                () => ({
-
-                    answer:
-                        null,
-
-                    photo:
-                        null
-
-                })
-            );
-
-
-        /*
-         * Limpa visual das perguntas
-         */
-
-        checklist.forEach(
-            (
-                item,
-                index
-            ) => {
-
-                const okButton =
-                    document.getElementById(
-                        `ok-${index}`
-                    );
-
-
-                const notOkButton =
-                    document.getElementById(
-                        `notok-${index}`
-                    );
-
-
-                const preview =
-                    document.getElementById(
-                        `preview-${index}`
-                    );
-
-
-                const image =
-                    document.getElementById(
-                        `image-${index}`
-                    );
-
-
-                const photoName =
-                    document.getElementById(
-                        `photo-name-${index}`
-                    );
-
-
-                if (okButton) {
-
-                    okButton.classList.remove(
-                        "active"
-                    );
-
-                }
-
-
-                if (notOkButton) {
-
-                    notOkButton.classList.remove(
-                        "active"
-                    );
-
-                }
-
-
-                if (preview) {
-
-                    preview.style.display =
-                        "none";
-
-                }
-
-
-                if (image) {
-
-                    image.removeAttribute(
-                        "src"
-                    );
-
-                }
-
-
-                if (photoName) {
-
-                    photoName.textContent =
-                        "";
-
-                }
-
-            }
         );
 
 
-        updateProgress();
+    return {
 
+        width:
+            originalWidth *
+            ratio,
 
-        hideWarning();
+        height:
+            originalHeight *
+            ratio
 
-
-        window.scrollTo({
-
-            top: 0,
-
-            behavior: "smooth"
-
-        });
-
-
-        console.log(
-            "Nova inspeção iniciada."
-        );
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Erro ao iniciar nova inspeção:",
-            error
-        );
-
-
-        alert(
-            "Não foi possível iniciar uma nova inspeção."
-        );
-
-    }
+    };
 
 }
 
 
-/*
- * ============================================================
- * START
- * ============================================================
- */
+/* ============================================================
+   INFO BOX PDF
+============================================================ */
+
+function drawPDFInfoBox(
+    pdf,
+    data,
+    y,
+    pageWidth
+) {
+
+    const x = 15;
+
+    const width =
+        pageWidth - 30;
+
+    const height = 36;
+
+
+    pdf.setFillColor(
+        248,
+        249,
+        250
+    );
+
+
+    pdf.setDrawColor(
+        225,
+        228,
+        231
+    );
+
+
+    pdf.roundedRect(
+
+        x,
+
+        y - 5,
+
+        width,
+
+        height,
+
+        2,
+
+        2,
+
+        "FD"
+
+    );
+
+
+    pdf.setFontSize(
+        8
+    );
+
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+
+    pdf.setTextColor(
+        100,
+        105,
+        110
+    );
+
+
+    pdf.text(
+        "CHECKLIST",
+        20,
+        y + 2
+    );
+
+
+    pdf.text(
+        "RESPONSÁVEL",
+        100,
+        y + 2
+    );
+
+
+    pdf.text(
+        "TURNO",
+        20,
+        y + 14
+    );
+
+
+    pdf.text(
+        "PRODUTO / LOTE",
+        100,
+        y + 14
+    );
+
+
+    pdf.setFont(
+        "helvetica",
+        "normal"
+    );
+
+
+    pdf.setFontSize(
+        9
+    );
+
+
+    pdf.setTextColor(
+        35,
+        40,
+        45
+    );
+
+
+    pdf.text(
+        String(
+            data.checklistName ||
+            "-"
+        ),
+        20,
+        y + 7
+    );
+
+
+    pdf.text(
+        String(
+            data.responsavel ||
+            "-"
+        ),
+        100,
+        y + 7
+    );
+
+
+    pdf.text(
+        String(
+            data.turno ||
+            "-"
+        ),
+        20,
+        y + 19
+    );
+
+
+    pdf.text(
+        String(
+            data.lote ||
+            "-"
+        ),
+        100,
+        y + 19
+    );
+
+
+    pdf.setFontSize(
+        7
+    );
+
+
+    pdf.setTextColor(
+        120,
+        125,
+        130
+    );
+
+
+    pdf.text(
+        `Data: ${data.date}`,
+        20,
+        y + 29
+    );
+
+}
+
+
+/* ============================================================
+   TÍTULO DE SEÇÃO PDF
+============================================================ */
+
+function drawPDFSectionTitle(
+    pdf,
+    title,
+    x,
+    y
+) {
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+
+    pdf.setFontSize(
+        11
+    );
+
+
+    pdf.setTextColor(
+        45,
+        52,
+        60
+    );
+
+
+    pdf.text(
+        title,
+        x,
+        y
+    );
+
+
+    pdf.setDrawColor(
+        200,
+        188,
+        166
+    );
+
+
+    pdf.setLineWidth(
+        0.8
+    );
+
+
+    pdf.line(
+        x,
+        y + 3,
+        x + 35,
+        y + 3
+    );
+
+}
+
+
+/* ============================================================
+   CARDS DO RESUMO
+============================================================ */
+
+function drawPDFSummaryCards(
+    pdf,
+    cards,
+    y,
+    pageWidth
+) {
+
+    const margin = 15;
+
+    const gap = 4;
+
+    const cardWidth =
+        (
+            pageWidth -
+            margin * 2 -
+            gap * 3
+        ) / 4;
+
+
+    const height = 22;
+
+
+    cards.forEach(
+        (
+            card,
+            index
+        ) => {
+
+            const x =
+                margin +
+                index *
+                (
+                    cardWidth +
+                    gap
+                );
+
+
+            pdf.setFillColor(
+                250,
+                250,
+                250
+            );
+
+
+            pdf.setDrawColor(
+                225,
+                228,
+                231
+            );
+
+
+            pdf.roundedRect(
+
+                x,
+
+                y,
+
+                cardWidth,
+
+                height,
+
+                2,
+
+                2,
+
+                "FD"
+
+            );
+
+
+            pdf.setFont(
+                "helvetica",
+                "bold"
+            );
+
+
+            pdf.setFontSize(
+                6.5
+            );
+
+
+            pdf.setTextColor(
+                110,
+                115,
+                120
+            );
+
+
+            pdf.text(
+                card[0],
+                x + 3,
+                y + 6
+            );
+
+
+            pdf.setFontSize(
+                9
+            );
+
+
+            pdf.setTextColor(
+                40,
+                45,
+                50
+            );
+
+
+            pdf.text(
+                card[1],
+                x + 3,
+                y + 15
+            );
+
+        }
+    );
+
+
+    return y + height;
+
+}
+
+
+/* ============================================================
+   STATUS PDF
+============================================================ */
+
+function drawPDFStatus(
+    pdf,
+    status,
+    y,
+    pageWidth
+) {
+
+    const isOK =
+        status === "CONFORME";
+
+
+    pdf.setFillColor(
+
+        isOK
+            ? 232
+            : 250,
+
+        isOK
+            ? 246
+            : 235,
+
+        isOK
+            ? 238
+            : 232
+
+    );
+
+
+    pdf.setDrawColor(
+
+        isOK
+            ? 150
+            : 220,
+
+        isOK
+            ? 190
+            : 150,
+
+        isOK
+            ? 165
+            : 140
+
+    );
+
+
+    pdf.roundedRect(
+
+        15,
+
+        y,
+
+        pageWidth - 30,
+
+        11,
+
+        2,
+
+        2,
+
+        "FD"
+
+    );
+
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+
+    pdf.setFontSize(
+        9
+    );
+
+
+    pdf.setTextColor(
+
+        isOK
+            ? 35
+            : 170,
+
+        isOK
+            ? 105
+            : 55,
+
+        isOK
+            ? 65
+            : 45
+
+    );
+
+
+    pdf.text(
+        `STATUS DA INSPEÇÃO: ${status}`,
+        20,
+        y + 7
+    );
+
+}
+
+
+/* ============================================================
+   RODAPÉ
+============================================================ */
+
+function addPDFFooter(
+    pdf,
+    pageWidth,
+    pageHeight
+) {
+
+    const pageNumber =
+        pdf.internal.getNumberOfPages();
+
+
+    pdf.setDrawColor(
+        220,
+        223,
+        226
+    );
+
+
+    pdf.line(
+
+        15,
+
+        pageHeight - 15,
+
+        pageWidth - 15,
+
+        pageHeight - 15
+
+    );
+
+
+    pdf.setFont(
+        "helvetica",
+        "normal"
+    );
+
+
+    pdf.setFontSize(
+        7
+    );
+
+
+    pdf.setTextColor(
+        130,
+        135,
+        140
+    );
+
+
+    pdf.text(
+
+        "Controle de Qualidade",
+
+        15,
+
+        pageHeight - 9
+
+    );
+
+
+    pdf.text(
+
+        `Página ${pageNumber}`,
+
+        pageWidth - 35,
+
+        pageHeight - 9
+
+    );
+
+}
+
+
+/* ============================================================
+   PREPARAR IMAGEM
+============================================================ */
+
+function prepareImageForPDF(
+    dataUrl
+) {
+
+    return new Promise(
+        (
+            resolve,
+            reject
+        ) => {
+
+            const image =
+                new Image();
+
+
+            image.onload =
+                function() {
+
+                    /*
+                     * Converte para JPEG.
+                     * Isso melhora compatibilidade
+                     * com jsPDF.
+                     */
+
+                    const canvas =
+                        document.createElement(
+                            "canvas"
+                        );
+
+
+                    const maxDimension =
+                        1400;
+
+
+                    let width =
+                        image.naturalWidth;
+
+
+                    let height =
+                        image.naturalHeight;
+
+
+                    if (
+                        width >
+                        maxDimension ||
+                        height >
+                        maxDimension
+                    ) {
+
+                        const ratio =
+                            Math.min(
+
+                                maxDimension /
+                                    width,
+
+                                maxDimension /
+                                    height
+
+                            );
+
+
+                        width *=
+                            ratio;
+
+
+                        height *=
+                            ratio;
+
+                    }
+
+
+                    canvas.width =
+                        width;
+
+
+                    canvas.height =
+                        height;
+
+
+                    const context =
+                        canvas.getContext(
+                            "2d"
+                        );
+
+
+                    context.drawImage(
+
+                        image,
+
+                        0,
+
+                        0,
+
+                        width,
+
+                        height
+
+                    );
+
+
+                    resolve({
+
+                        data:
+                            canvas.toDataURL(
+                                "image/jpeg",
+                                0.82
+                            ),
+
+                        width,
+
+                        height
+
+                    });
+
+                };
+
+
+            image.onerror =
+                function() {
+
+                    reject(
+                        new Error(
+                            "Imagem inválida."
+                        )
+                    );
+
+                };
+
+
+            image.src =
+                dataUrl;
+
+        }
+    );
+
+}
+
+
+/* ============================================================
+   FORMATAÇÃO DE DATA
+============================================================ */
+
+function formatFileDate(
+    date
+) {
+
+    const pad =
+        value =>
+            String(
+                value
+            ).padStart(
+                2,
+                "0"
+            );
+
+
+    return [
+
+        date.getFullYear(),
+
+        pad(
+            date.getMonth() + 1
+        ),
+
+        pad(
+            date.getDate()
+        )
+
+    ].join("-")
+    +
+    "_"
+    +
+    [
+
+        pad(
+            date.getHours()
+        ),
+
+        pad(
+            date.getMinutes()
+        ),
+
+        pad(
+            date.getSeconds()
+        )
+
+    ].join("-");
+
+}
+
+
+/* ============================================================
+   NOME SEGURO PARA ARQUIVO
+============================================================ */
+
+function sanitizeFileName(
+    value
+) {
+
+    return String(
+        value ||
+        "inspecao"
+    )
+
+        .normalize(
+            "NFD"
+        )
+
+        .replace(
+            /[\u0300-\u036f]/g,
+            ""
+        )
+
+        .replace(
+            /[^a-zA-Z0-9_-]+/g,
+            "_"
+        )
+
+        .replace(
+            /^_+|_+$/g,
+            ""
+
+        )
+
+        || "inspecao";
+
+}
+
+
+/* ============================================================
+   START
+============================================================ */
 
 initialize();
