@@ -17,37 +17,37 @@ const CHECKLISTS = [
     {
         id: "linha-pintura",
         nome: "Linha de Pintura",
-        arquivo: "config/checklists/linha-pintura.json"
+        arquivo: "config/checlists/linha-pintura.json"
     },
 
     {
         id: "linha-inspecao",
         nome: "Linha de Inspeção",
-        arquivo: "config/checklists/linha-inspecao.json"
+        arquivo: "config/checlists/linha-inspecao.json"
     },
 
     {
         id: "linha-haste",
         nome: "Linha de Haste",
-        arquivo: "config/checklists/linha-haste.json"
+        arquivo: "config/checlists/linha-haste.json"
     },
 
     {
         id: "linha-solda",
         nome: "Linha de Solda",
-        arquivo: "config/checklists/linha-solda.json"
+        arquivo: "config/checlists/linha-solda.json"
     },
 
     {
         id: "linha-tubos",
         nome: "Linha de Tubos",
-        arquivo: "config/checklists/linha-tubos.json"
+        arquivo: "config/checlists/linha-tubos.json"
     },
 
     {
         id: "linha-montagem",
         nome: "Linha de Montagem",
-        arquivo: "config/checklists/linha-montagem.json"
+        arquivo: "config/checlists/linha-montagem.json"
     }
 
 ];
