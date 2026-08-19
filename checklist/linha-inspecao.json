@@ -1,0 +1,106 @@
+{
+  "nome": "Linha de Inspeção",
+  "descricao": "Checklist de inspeção da Linha de Inspeção",
+  "perguntas": [
+    {
+      "id": 1,
+      "texto": "Matriz de versatilidade está atualizada e disponível no Posto Focus Factory.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 2,
+      "texto": "Operadores estão treinados.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 3,
+      "texto": "Quant. de Operadores para executar a atividade está adequada conforme matriz de versatilidade.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 4,
+      "texto": "Limpeza, Organização está Conforme Padrão de 5'S",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 5,
+      "texto": "A manutenção produtiva total (MPT),está sendo seguida e preenchidas corretamente conforme check-lista do MPT",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 6,
+      "texto": "O check-list de manutenções produtiva total (MPT),está disponível no equipamento",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 7,
+      "texto": "O Check-list de manutenções produtiva total (MPT),está sendo preenchido corretamente",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 8,
+      "texto": "Operadores estão utilizando EPI's de acordo com a Matriz de EPE's",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 9,
+      "texto": "Produtos NC ou Suspeito está identificado com Motivo e Responsáveis.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 10,
+      "texto": "Verificar se os tubos reservatórios estão na área dedicada para Renault, de acordo com o procedimento",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 11,
+      "texto": "Verificar se Todas as Caixas da Renault estão identificadas com data e quantidade",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 12,
+      "texto": "Na área de FIFO, conferir se as caçambas estão em local previamente definido (Amarelo/Verde/Azul), conforme tabela de cores na área exclusiva",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 13,
+      "texto": "Verificar se a Rua da inspeção está sendo inspecionada para peças incompletas, próximo lote para inspeção e espera.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 14,
+      "texto": "Verificar se a instrução IC 022A está disponível no posto de trabalho e de fácil acesso (Posto 100%)",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 15,
+      "texto": "Verificar se a instrução IC 023 A está sendo seguida e adequada para atividade (Posto 100%)",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 16,
+      "texto": "Verificar se o registro de sequencia está sendo anotado na planilha de controle de FIFO (Qualder)",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 17,
+      "texto": "Verificar se esta sendo controlado e registrado conforme planilha do GPI 2",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 18,
+      "texto": "Verificar se a instrução IC 023B está disponível no posto de trabalho e de fácil acesso (Posto 100%)",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 19,
+      "texto": "Verificar se a instrução IC 023 B está sendo seguida e adequada para atividade (Posto 100%)",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 20,
+      "texto": "Verificar se esta sendo controlado e registrado conforme planilha do GPI 2",
+      "fotoObrigatoria": false
+    }
+  ]
+}

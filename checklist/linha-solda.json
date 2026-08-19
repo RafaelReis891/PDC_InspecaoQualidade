@@ -1,0 +1,86 @@
+{
+  "nome": "Linha de Solda",
+  "descricao": "Checklist de inspeção da Linha de Solda",
+  "perguntas": [
+    {
+      "id": 1,
+      "texto": "Matriz de versatilidade está atualizada e disponível no Posto Focu Factory.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 2,
+      "texto": "Operadores estão treinados.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 3,
+      "texto": "Quant. de Operadores para executar a atividade está adequada conforme matriz de versatilidade.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 4,
+      "texto": "Limpeza, Organização está Conforme Padrão de 5'S",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 5,
+      "texto": "A manutenção produtiva total (MPT),esta sendo seguida e preenchidas corretamente conforme check-lista do MPT",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 6,
+      "texto": "O check-list de manutenções produtiva total (MPT),esta disponível no equipamento",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 7,
+      "texto": "O check-list de manutenções produtiva total (MPT),está sendo preenchido corretamente",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 8,
+      "texto": "Operadores estão utilizando EPI's de acordo com a Matriz de EPE's",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 9,
+      "texto": "Produtos NC ou Suspeito está identificado com Motivo e Responsaveis.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 10,
+      "texto": "Verificar o Dimensional do Dispositivo (BD35063), do copo da base Durante o Processo de Setup",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 11,
+      "texto": "Verificar se as amostras de Setup estão correspondente com 1% do lote.(Esta atividade é contenção até a implementação do calibrador).",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 12,
+      "texto": "Verificar se todas amostras medidas na Tridimensional estão aprovadas antes do início da produção.(Esta atividade é contenção até a implementação do calibrador).",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 13,
+      "texto": "Verificar se o calibrador do copo da base está disponível no posto de trabalho",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 14,
+      "texto": "Verificar se está sendo realizado o teste com calibrador e registrado as amostras após a solda do copo da base com tubo reservatório",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 15,
+      "texto": "Verificar se o Operador está Seguindo o Plano de Controle para Registros do Processo.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 16,
+      "texto": "Confirmar o preenchimento dos registros de Liberação e Durante o Processo",
+      "fotoObrigatoria": false
+    }
+  ]
+}
