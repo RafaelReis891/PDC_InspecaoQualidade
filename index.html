@@ -29,7 +29,7 @@
         <!-- MENU DE AÇÕES (Dropdown) -->
         <div id="actionMenu" class="action-menu">
             <button id="saveButton" class="menu-action" type="button">
-                <span class="icon">💾</span> <span>Salvar Arquivo</span>
+                <span class="icon">💾</span> <span>Salvar Arquivo Local</span>
             </button>
             <button id="loadButton" class="menu-action" type="button">
                 <span class="icon">📂</span> <span>Carregar Arquivo</span>
@@ -97,7 +97,6 @@
     <main id="questions"></main>
 
     <!-- RESULTADO FINAL DO TURNO -->
-     
     <section id="finalData" class="card final-data">
         <div class="section-title">Registrar no final do turno</div>
         <div class="final-grid">
@@ -130,7 +129,10 @@
     </div>
 </div>
 
+<!-- Storage local (IndexedDB) -->
 <script src="storage.js"></script>
-<script src="app.js"></script>
+<!-- App principal como Módulo para suportar Firebase -->
+<script type="module" src="app.js"></script>
+
 </body>
 </html>

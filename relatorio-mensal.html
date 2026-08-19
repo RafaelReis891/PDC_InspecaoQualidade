@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório Mensal - Controle de Qualidade</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            padding: 20px;
+            background: #f0f2f5;
+            margin: 0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h1 { color: #1769aa; margin-top: 0; }
+        .filters {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-end;
+        }
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            background: #1769aa;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            height: 42px;
+        }
+        button:hover { background: #0d4f82; }
+        button:disabled { background: #a0aec0; cursor: not-allowed; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin: 25px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #1769aa;
+        }
+        .stat-value { font-size: 28px; font-weight: 800; color: #1769aa; }
+        .stat-label { font-size: 13px; color: #6c757d; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 20px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px; /* Garante que a tabela não esmague em telas pequenas */
+        }
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 13px;
+        }
+        th {
+            background: #1769aa;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        th:first-child, td:first-child {
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 11;
+            font-weight: bold;
+            border-right: 2px solid #dee2e6;
+        }
+        th:first-child { background: #1769aa; color: white; z-index: 12; }
+        
+        tr:nth-child(even) td:first-child { background: #f8f9fa; }
+        
+        .ok { color: #198754; font-weight: bold; font-size: 16px; }
+        .nok { color: #dc3545; font-weight: bold; font-size: 16px; }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Relatório Mensal de Qualidade</h1>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label>Checklist / Setor:</label>
+                <select id="checklistSelect">
+                    <option value="">Todos os Setores</option>
+                    <option value="linha-pintura">Linha de Pintura</option>
+                    <option value="linha-inspecao">Linha de Inspeção</option>
+                    <option value="linha-haste">Linha de Haste</option>
+                    <option value="linha-solda">Linha de Solda</option>
+                    <option value="linha-tubos">Linha de Tubos</option>
+                    <option value="linha-montagem">Linha de Montagem</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Mês/Ano:</label>
+                <input type="month" id="mesAno" value="2026-08">
+            </div>
+            
+            <button id="btnGerar" onclick="gerarRelatorio()">🔍 Gerar Relatório</button>
+            <button id="btnExportar" onclick="exportarExcel()" disabled>📥 Exportar Excel</button>
+        </div>
+
+        <div id="loading" class="loading" style="display:none;">
+            ⏳ Carregando dados do Firebase...
+        </div>
+
+        <div id="stats" class="stats" style="display:none;"></div>
+        <div id="tabelaContainer"></div>
+    </div>
+
+    <script type="module">
+        // ============================================================
+        // IMPORTAÇÕES DO FIREBASE (Realtime Database)
+        // ============================================================
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDswGi_UmMiCddQ0Fq_xggkDMsPORtiClc",
+            authDomain: "pdc-monthly.firebaseapp.com",
+            projectId: "pdc-monthly",
+            storageBucket: "pdc-monthly.firebasestorage.app",
+            messagingSenderId: "405073422956",
+            appId: "1:405073422956:web:e77b330bb8a9e02c538649",
+            measurementId: "G-JZB6V2BTQP",
+            databaseURL: "https://pdc-monthly-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Variável global para armazenar os dados e permitir a exportação
+        window.dadosRelatorio = [];
+
+        async function gerarRelatorio() {
+            const checklistId = document.getElementById('checklistSelect').value;
+            const mesAno = document.getElementById('mesAno').value; // Formato: YYYY-MM
+
+            if (!mesAno) {
+                alert("Por favor, selecione um Mês/Ano.");
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('tabelaContainer').innerHTML = '';
+            document.getElementById('btnExportar').disabled = true;
+
+            try {
+                // Buscar todos os dados do nó 'inspecoes' no Realtime Database
+                const inspecoesRef = ref(db, 'inspecoes');
+                const snapshot = await get(inspecoesRef);
+                
+                let dadosMes = [];
+
+                if (snapshot.exists()) {
+                    const todasInspecoes = snapshot.val();
+                    
+                    // Converter o objeto do Firebase em um Array e filtrar
+                    // Filtro completo e à prova de falhas
+                    dadosMes = Object.values(todasInspecoes).filter(item => {
+                        const matchMes = item.data && item.data.startsWith(mesAno);
+                        
+                        if (checklistId === "") {
+                            return matchMes;
+                        }
+                        
+                        // Mapeia os IDs para os nomes
+                        const nomeChecklistSelecionado = document.getElementById('checklistSelect')
+                            .options[document.getElementById('checklistSelect').selectedIndex].text;
+                        
+                        // Verifica por ID ou por Nome
+                        const matchById = item.checklistId === checklistId;
+                        const matchByName = item.checklistNome === nomeChecklistSelecionado;
+                        
+                        return matchMes && (matchById || matchByName);
+                    });
+
+                    // Ordenar por Data e depois por Turno
+                    dadosMes.sort((a, b) => {
+                        const getHoraTurno = (turno) => {
+                            if (turno === '1º Turno') return '06:00';
+                            if (turno === '2º Turno') return '14:00';
+                            if (turno === '3º Turno') return '22:00';
+                            return '12:00';
+                        };
+                        const dateA = new Date(a.data + 'T' + getHoraTurno(a.turno));
+                        const dateB = new Date(b.data + 'T' + getHoraTurno(b.turno));
+                        return dateA - dateB;
+                    });
+                }
+
+                window.dadosRelatorio = dadosMes;
+                document.getElementById('btnExportar').disabled = dadosMes.length === 0;
+
+                // Calcular estatísticas
+                const totalDias = new Set(dadosMes.map(d => d.data)).size;
+                const totalInspecoes = dadosMes.length;
+                const totalOk = dadosMes.filter(d => d.statusDia === "CONFORME").length;
+                const totalNok = dadosMes.filter(d => d.statusDia === "NÃO CONFORME").length;
+                const conformidade = totalInspecoes > 0 ? ((totalOk / totalInspecoes) * 100).toFixed(1) : 0;
+
+                // Renderizar estatísticas
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${totalDias}</div>
+                        <div class="stat-label">Dias com Inspeção</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${totalInspecoes}</div>
+                        <div class="stat-label">Total de Inspeções</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: #198754;">${totalOk}</div>
+                        <div class="stat-label">Dias Conformes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: #dc3545;">${totalNok}</div>
+                        <div class="stat-label">Dias Não Conformes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${conformidade}%</div>
+                        <div class="stat-label">Índice de Conformidade</div>
+                    </div>
+                `;
+                document.getElementById('stats').style.display = 'grid';
+
+                gerarTabela(dadosMes, mesAno);
+
+            } catch (error) {
+                console.error("Erro:", error);
+                alert("Erro ao gerar relatório: " + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function gerarTabela(dados, mesAno) {
+            if (!dados || dados.length === 0) {
+                document.getElementById('tabelaContainer').innerHTML = 
+                    '<p style="text-align:center; color:#6c757d; padding: 40px;">Nenhuma inspeção encontrada para o período e filtro selecionados.</p>';
+                return;
+            }
+
+            // Usa os itens do primeiro registro como base para as linhas da tabela
+            const itensBase = dados[0].itens;
+            
+            // Calcula o número exato de dias no mês selecionado
+            const [ano, mes] = mesAno.split('-');
+            const diasNoMes = new Date(ano, mes, 0).getDate();
+
+            let html = '<div class="table-wrapper"><table><thead><tr>';
+            html += '<th>Item</th><th style="text-align: left;">Status dos registros das atividades</th>';
+            
+            // Cabeçalho com os dias do mês
+            for (let dia = 1; dia <= diasNoMes; dia++) {
+                html += `<th>${dia}</th>`;
+            }
+            html += '<th>Total OK</th><th>Total NOK</th></tr></thead><tbody>';
+
+            // Linhas dos itens do checklist
+            itensBase.forEach((itemBase, idx) => {
+                html += `<tr>`;
+                html += `<td>${idx + 1}</td>`;
+                
+                // Trunca o texto se for muito longo para manter a tabela limpa
+                const textoPergunta = itemBase.pergunta.length > 50 ? itemBase.pergunta.substring(0, 50) + '...' : itemBase.pergunta;
+                html += `<td style="text-align:left; font-size:12px;">${textoPergunta}</td>`;
+
+                let totalOkLinha = 0;
+                let totalNokLinha = 0;
+
+                // Verifica cada dia do mês
+                for (let dia = 1; dia <= diasNoMes; dia++) {
+                    const dataFormatada = `${mesAno}-${String(dia).padStart(2, '0')}`;
+                    
+                    // Encontra TODAS as inspeções feitas neste dia específico
+                    const inspecoesDoDia = dados.filter(d => d.data === dataFormatada);
+                    
+                    if (inspecoesDoDia.length > 0) {
+                        // Se QUALQUER turno neste dia tiver dado NOK neste item, o dia é marcado como NOK (regra de segurança)
+                        const teveNok = inspecoesDoDia.some(insp => insp.itens[idx] && insp.itens[idx].resultado === "NÃO OK");
+                        const teveOk = inspecoesDoDia.some(insp => insp.itens[idx] && insp.itens[idx].resultado === "OK");
+
+                        if (teveNok) {
+                            html += `<td class="nok">✕</td>`;
+                            totalNokLinha++;
+                        } else if (teveOk) {
+                            html += `<td class="ok">✓</td>`;
+                            totalOkLinha++;
+                        } else {
+                            html += `<td>-</td>`;
+                        }
+                    } else {
+                        html += `<td style="background:#f9f9f9; color:#ccc;">-</td>`;
+                    }
+                }
+
+                html += `<td><strong>${totalOkLinha}</strong></td>`;
+                html += `<td><strong style="color: #dc3545;">${totalNokLinha}</strong></td>`;
+                html += `</tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            document.getElementById('tabelaContainer').innerHTML = html;
+        }
+
+        function exportarExcel() {
+    const dados = window.dadosRelatorio;
+    if (!dados || dados.length === 0) {
+        alert("Gere o relatório primeiro!");
+        return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    const mesAno = document.getElementById('mesAno').value;
+    const nomeChecklist = document.getElementById('checklistSelect').options[
+        document.getElementById('checklistSelect').selectedIndex
+    ].text;
+
+    // ============================================================
+    // ABA 1: RESUMO
+    // ============================================================
+    const totalOk = dados.filter(d => d.statusDia === "CONFORME").length;
+    const totalNok = dados.filter(d => d.statusDia === "NÃO CONFORME").length;
+    
+    const resumoData = [
+        ["RELATÓRIO MENSAL DE QUALIDADE"],
+        ["Checklist:", nomeChecklist],
+        ["Período:", mesAno],
+        [],
+        ["Total de Inspeções:", dados.length],
+        ["Dias Conformes:", totalOk],
+        ["Dias Não Conformes:", totalNok],
+        ["Índice de Conformidade:", dados.length > 0 ? ((totalOk / dados.length) * 100).toFixed(1) + "%" : "0%"]
+    ];
+
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
+    // ============================================================
+    // ABA 2: DETALHADO POR INSPEÇÃO
+    // ============================================================
+    const detalhadoData = dados.map(d => ({
+        Data: d.data,
+        Turno: d.turno,
+        Responsável: d.responsavel,
+        Lote: d.lote,
+        Status: d.statusDia,
+        "QTD Produzidos": d.qtdProduzidos,
+        "QTD Não Conformes": d.qtdNaoConformes,
+        "QTD NOK Auditoria": d.qtdNokAuditoria,
+        "Itens OK": d.totalItensOk,
+        "Itens NOK": d.totalItensNok
+    }));
+
+    const wsDetalhado = XLSX.utils.json_to_sheet(detalhadoData);
+    XLSX.utils.book_append_sheet(wb, wsDetalhado, "Detalhado por Inspeção");
+
+    // ============================================================
+    // ABA 3: RESULTADOS POR ITEM DO CHECKLIST
+    // ============================================================
+    if (dados.length > 0 && dados[0].itens && dados[0].itens.length > 0) {
+        const itensData = [];
+        const numItens = dados[0].itens.length;
+        
+        // Cabeçalho: Item + Pergunta + uma coluna para cada inspeção
+        const headerRow = ["Item", "Pergunta"];
+        dados.forEach((insp, idx) => {
+            headerRow.push(`${insp.data} - ${insp.turno}`);
+        });
+        headerRow.push("Total OK", "Total NOK");
+        itensData.push(headerRow);
+
+        // Linhas dos itens
+        for (let i = 0; i < numItens; i++) {
+            const itemBase = dados[0].itens[i];
+            const row = [
+                i + 1,
+                itemBase.pergunta
+            ];
+
+            let totalOkItem = 0;
+            let totalNokItem = 0;
+
+            // Para cada inspeção, verifica o resultado deste item
+            dados.forEach(insp => {
+                if (insp.itens && insp.itens[i]) {
+                    const resultado = insp.itens[i].resultado;
+                    row.push(resultado);
+                    
+                    if (resultado === "OK") totalOkItem++;
+                    if (resultado === "NÃO OK") totalNokItem++;
+                } else {
+                    row.push("N/A");
+                }
+            });
+
+            row.push(totalOkItem, totalNokItem);
+            itensData.push(row);
+        }
+
+        const wsItens = XLSX.utils.aoa_to_sheet(itensData);
+        
+        // Ajusta largura das colunas
+        const wsItensCols = [
+            { wch: 5 },  // Item
+            { wch: 80 }, // Pergunta
+        ];
+        // Colunas das inspeções
+        for (let i = 0; i < dados.length; i++) {
+            wsItensCols.push({ wch: 15 });
+        }
+        wsItensCols.push({ wch: 10 }, { wch: 10 }); // Total OK, Total NOK
+        
+        wsItens['!cols'] = wsItensCols;
+        
+        XLSX.utils.book_append_sheet(wb, wsItens, "Resultados por Item");
+    }
+
+    // ============================================================
+    // ABA 4: NÃO CONFORMIDADES DETALHADAS
+    // ============================================================
+    const naoConformidades = [];
+    naoConformidades.push(["DATA", "TURNO", "RESPONSÁVEL", "ITEM", "PERGUNTA", "RESULTADO"]);
+    
+    dados.forEach(insp => {
+        if (insp.itens) {
+            insp.itens.forEach(item => {
+                if (item.resultado === "NÃO OK") {
+                    naoConformidades.push([
+                        insp.data,
+                        insp.turno,
+                        insp.responsavel,
+                        item.id,
+                        item.pergunta,
+                        item.resultado
+                    ]);
+                }
+            });
+        }
+    });
+
+    const wsNok = XLSX.utils.aoa_to_sheet(naoConformidades);
+    wsNok['!cols'] = [
+        { wch: 12 }, // Data
+        { wch: 15 }, // Turno
+        { wch: 20 }, // Responsável
+        { wch: 5 },  // Item
+        { wch: 80 }, // Pergunta
+        { wch: 12 }  // Resultado
+    ];
+    
+    XLSX.utils.book_append_sheet(wb, wsNok, "Não Conformidades");
+
+    // Salvar arquivo
+    const nomeArquivo = `relatorio_mensal_${mesAno}_${nomeChecklist.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}.xlsx`;
+    XLSX.writeFile(wb, nomeArquivo);
+}
+
+        // Exportar funções para o escopo global (para os botões onclick do HTML)
+        window.gerarRelatorio = gerarRelatorio;
+        window.exportarExcel = exportarExcel;
+    </script>
+</body>
+</html>
