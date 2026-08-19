@@ -1,464 +1,130 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <meta
-        name="theme-color"
-        content="#1f2937"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1769aa">
     <title>Controle de Qualidade</title>
-
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
+    <link rel="stylesheet" href="style.css">
 
     <!-- Excel -->
-    <script
-        src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
-    </script>
-
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- PDF -->
-    <script
-        src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js">
-    </script>
-
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
-
-
 <body>
 
 <div class="app">
 
-
-    <!-- ======================================================
-         MENU
-    ======================================================= -->
-
+    <!-- CABEÇALHO E MENU -->
     <header class="header">
-
         <div class="header-top">
-
             <div>
-
-                <h1
-                    id="headerTitle"
-                    class="header-title">
-                    Controle de Qualidade
-                </h1>
-
-                <p
-                    id="headerSubtitle"
-                    class="header-subtitle">
-                    Checklist de inspeção
-                </p>
-
+                <h1 id="headerTitle" class="header-title">Controle de Qualidade</h1>
+                <p id="headerSubtitle" class="header-subtitle">Checklist de inspeção</p>
             </div>
-
-
-            <button
-                id="menuToggle"
-                class="menu-toggle"
-                type="button"
-                aria-label="Abrir menu">
-
-                ☰
-
-            </button>
-
+            <button id="menuToggle" class="menu-toggle" type="button" aria-label="Abrir menu">☰</button>
         </div>
 
-
-        <!-- MENU DE AÇÕES -->
-
-        <div
-            id="actionMenu"
-            class="action-menu">
-
-            <button
-                id="saveButton"
-                class="menu-action save-action"
-                type="button">
-
-                💾
-                <span>Salvar</span>
-
+        <!-- MENU DE AÇÕES (Dropdown) -->
+        <div id="actionMenu" class="action-menu">
+            <button id="saveButton" class="menu-action" type="button">
+                <span class="icon">💾</span> <span>Salvar Arquivo</span>
             </button>
-
-
-            <button
-                id="loadButton"
-                class="menu-action load-action"
-                type="button">
-
-                📂
-                <span>Carregar</span>
-
+            <button id="loadButton" class="menu-action" type="button">
+                <span class="icon">📂</span> <span>Carregar Arquivo</span>
             </button>
-
-
-            <button
-                id="newButton"
-                class="menu-action new-action"
-                type="button">
-
-                🆕
-                <span>Novo</span>
-
+            <button id="newButton" class="menu-action new-action" type="button">
+                <span class="icon">🆕</span> <span>Nova Inspeção</span>
             </button>
-
         </div>
-
     </header>
 
+    <!-- Input oculto para carregar JSON -->
+    <input type="file" id="importFile" accept=".json" style="display: none;">
 
-
-    <!-- ======================================================
-         DADOS DA INSPEÇÃO
-    ======================================================= -->
-
+    <!-- DADOS DA INSPEÇÃO -->
     <section class="card">
-
-        <div class="section-title">
-
-            <span>Dados da inspeção</span>
-
-        </div>
-
-
+        <div class="section-title">Dados da inspeção</div>
         <div class="inspection-data">
-
-
-            <!-- SETOR -->
-
             <div class="field">
-
-                <label for="checklistSelect">
-                    Checklist / Setor
-                </label>
-
-                <select
-                    id="checklistSelect">
-
-                    <option value="">
-                        Selecione o setor
-                    </option>
-
-                    <option value="Linha de Pintura">
-                        Linha de Pintura
-                    </option>
-
-                    <option value="Linha de Inspeção">
-                        Linha de Inspeção
-                    </option>
-
-                    <option value="Linha de Haste">
-                        Linha de Haste
-                    </option>
-
-                    <option value="Linha de Solda">
-                        Linha de Solda
-                    </option>
-
-                    <option value="Linha de Tubos">
-                        Linha de Tubos
-                    </option>
-
-                    <option value="Linha de Montagem">
-                        Linha de Montagem
-                    </option>
-
+                <label for="checklistSelect">Checklist / Setor</label>
+                <select id="checklistSelect">
+                    <option value="">Selecione o setor</option>
+                    <option value="linha-pintura">Linha de Pintura</option>
+                    <option value="linha-inspecao">Linha de Inspeção</option>
+                    <option value="linha-haste">Linha de Haste</option>
+                    <option value="linha-solda">Linha de Solda</option>
+                    <option value="linha-tubos">Linha de Tubos</option>
+                    <option value="linha-montagem">Linha de Montagem</option>
                 </select>
-
             </div>
-
-
-
-            <!-- RESPONSÁVEL -->
-
             <div class="field">
-
-                <label for="responsavel">
-                    Responsável
-                </label>
-
-                <input
-                    id="responsavel"
-                    type="text"
-                    placeholder="Nome do responsável"
-                    autocomplete="off"
-                >
-
+                <label for="responsavel">Responsável</label>
+                <input id="responsavel" type="text" placeholder="Nome do responsável" autocomplete="off">
             </div>
-
-
-
-            <!-- TURNO -->
-
             <div class="field">
-
-                <label for="turno">
-                    Turno trabalhado
-                </label>
-
-                <input
-                    id="turno"
-                    type="text"
-                    placeholder="Ex.: 1º Turno"
-                    autocomplete="off"
-                >
-
+                <label for="turno">Turno trabalhado</label>
+                <input id="turno" type="text" placeholder="Ex.: 1º Turno" autocomplete="off">
             </div>
-
-
-
-            <!-- LOTE -->
-
             <div class="field">
-
-                <label for="lote">
-                    Produto / Lote
-                </label>
-
-                <input
-                    id="lote"
-                    type="text"
-                    placeholder="Ex.: Lote 001"
-                    autocomplete="off"
-                >
-
+                <label for="lote">Produto / Lote</label>
+                <input id="lote" type="text" placeholder="Ex.: Lote 001" autocomplete="off">
             </div>
-
         </div>
-
     </section>
 
-
-
-    <!-- ======================================================
-         PROGRESSO
-    ======================================================= -->
-
+    <!-- PROGRESSO -->
     <section class="card">
-
         <div class="progress-header">
-
-            <span>
-                Progresso da inspeção
-            </span>
-
-            <span id="progressText">
-                0 / 0
-            </span>
-
+            <span>Progresso da inspeção</span>
+            <span id="progressText">0 / 0</span>
         </div>
-
-
         <div class="progress-bar">
-
-            <div
-                id="progressFill"
-                class="progress-fill">
-            </div>
-
+            <div id="progressFill" class="progress-fill"></div>
         </div>
-
     </section>
 
+    <!-- AVISO -->
+    <div id="warning" class="warning"></div>
 
-
-    <!-- ======================================================
-         AVISO
-    ======================================================= -->
-
-    <div
-        id="warning"
-        class="warning">
-    </div>
-
-
-
-    <!-- ======================================================
-         PERGUNTAS
-    ======================================================= -->
-
+    <!-- PERGUNTAS -->
     <main id="questions"></main>
 
-
-
-    <!-- ======================================================
-         RESULTADO FINAL DO TURNO
-    ======================================================= -->
-
-    <section
-        id="finalData"
-        class="card final-data">
-
-        <div class="section-title">
-
-            Registrar no final do turno
-
-        </div>
-
-
+    <!-- RESULTADO FINAL DO TURNO -->
+    <section id="finalData" class="card final-data">
+        <div class="section-title">Registrar no final do turno</div>
         <div class="final-grid">
-
-
             <div class="field">
-
-                <label for="qtdProduzidos">
-                    QTD produzidos
-                </label>
-
-                <input
-                    id="qtdProduzidos"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="0"
-                >
-
+                <label for="qtdProduzidos">QTD produzidos</label>
+                <input id="qtdProduzidos" type="number" min="0" step="1" placeholder="0">
             </div>
-
-
-
             <div class="field">
-
-                <label for="qtdNaoConformes">
-                    QTD Peças Não Conformes
-                </label>
-
-                <input
-                    id="qtdNaoConformes"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="0"
-                >
-
+                <label for="qtdNaoConformes">QTD Peças Não Conformes</label>
+                <input id="qtdNaoConformes" type="number" min="0" step="1" placeholder="0">
             </div>
-
-
-
             <div class="field">
-
-                <label for="qtdNokAuditoria">
-                    QTD NOK Auditoria Processo
-                </label>
-
-                <input
-                    id="qtdNokAuditoria"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="0"
-                >
-
+                <label for="qtdNokAuditoria">QTD NOK Auditoria Processo</label>
+                <input id="qtdNokAuditoria" type="number" min="0" step="1" placeholder="0">
             </div>
-
         </div>
-
     </section>
 
 </div>
 
-
-
-<!-- ==========================================================
-     BARRA INFERIOR
-=========================================================== -->
-
+<!-- BARRA INFERIOR -->
 <div class="bottom-bar">
-
     <div class="bottom-buttons">
-
-
-        <button
-            id="pdfButton"
-            class="main-button pdf-button"
-            type="button">
-
-            📄
-            <span>Gerar PDF</span>
-
+        <button id="pdfButton" class="main-button pdf-button" type="button">
+            📄 <span>Gerar PDF</span>
         </button>
-
-
-
-        <button
-            id="excelButton"
-            class="main-button excel-button"
-            type="button"
-            disabled>
-
-            📊
-            <span>Finalizar / Excel</span>
-
+        <button id="excelButton" class="main-button excel-button" type="button" disabled>
+            📊 <span>Finalizar / Excel</span>
         </button>
-
     </div>
-
 </div>
-
-
-
-<!-- ==========================================================
-     MODAL DE CARREGAMENTO
-=========================================================== -->
-
-<div
-    id="loadModal"
-    class="modal">
-
-    <div class="modal-content">
-
-        <div class="modal-header">
-
-            <h2>
-                Inspeção salva
-            </h2>
-
-            <button
-                id="closeLoadModal"
-                type="button">
-
-                ×
-
-            </button>
-
-        </div>
-
-
-        <div
-            id="savedInspections"
-            class="saved-inspections">
-
-        </div>
-
-    </div>
-
-</div>
-
-
-
-<!-- ==========================================================
-     SCRIPTS
-=========================================================== -->
 
 <script src="storage.js"></script>
-
 <script src="app.js"></script>
-
-
 </body>
-
 </html>
