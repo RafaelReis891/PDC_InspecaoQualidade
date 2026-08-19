@@ -292,74 +292,99 @@
         }
 
         function gerarTabela(dados, mesAno) {
-            if (!dados || dados.length === 0) {
-                document.getElementById('tabelaContainer').innerHTML = 
-                    '<p style="text-align:center; color:#6c757d; padding: 40px;">Nenhuma inspeção encontrada para o período e filtro selecionados.</p>';
-                return;
-            }
+    if (!dados || dados.length === 0) {
+        document.getElementById('tabelaContainer').innerHTML = 
+            '<p style="text-align:center; color:#6c757d; padding: 40px;">Nenhuma inspeção encontrada.</p>';
+        return;
+    }
 
-            // Usa os itens do primeiro registro como base para as linhas da tabela
-            const itensBase = dados[0].itens;
-            
-            // Calcula o número exato de dias no mês selecionado
-            const [ano, mes] = mesAno.split('-');
-            const diasNoMes = new Date(ano, mes, 0).getDate();
+    // Calcula dias no mês
+    const [ano, mes] = mesAno.split('-');
+    const diasNoMes = new Date(ano, mes, 0).getDate();
 
-            let html = '<div class="table-wrapper"><table><thead><tr>';
-            html += '<th>Item</th><th style="text-align: left;">Status dos registros das atividades</th>';
-            
-            // Cabeçalho com os dias do mês
-            for (let dia = 1; dia <= diasNoMes; dia++) {
-                html += `<th>${dia}</th>`;
-            }
-            html += '<th>Total OK</th><th>Total NOK</th></tr></thead><tbody>';
-
-            // Linhas dos itens do checklist
-            itensBase.forEach((itemBase, idx) => {
-                html += `<tr>`;
-                html += `<td>${idx + 1}</td>`;
-                
-                // Trunca o texto se for muito longo para manter a tabela limpa
-                const textoPergunta = itemBase.pergunta.length > 50 ? itemBase.pergunta.substring(0, 50) + '...' : itemBase.pergunta;
-                html += `<td style="text-align:left; font-size:12px;">${textoPergunta}</td>`;
-
-                let totalOkLinha = 0;
-                let totalNokLinha = 0;
-
-                // Verifica cada dia do mês
-                for (let dia = 1; dia <= diasNoMes; dia++) {
-                    const dataFormatada = `${mesAno}-${String(dia).padStart(2, '0')}`;
-                    
-                    // Encontra TODAS as inspeções feitas neste dia específico
-                    const inspecoesDoDia = dados.filter(d => d.data === dataFormatada);
-                    
-                    if (inspecoesDoDia.length > 0) {
-                        // Se QUALQUER turno neste dia tiver dado NOK neste item, o dia é marcado como NOK (regra de segurança)
-                        const teveNok = inspecoesDoDia.some(insp => insp.itens[idx] && insp.itens[idx].resultado === "NÃO OK");
-                        const teveOk = inspecoesDoDia.some(insp => insp.itens[idx] && insp.itens[idx].resultado === "OK");
-
-                        if (teveNok) {
-                            html += `<td class="nok">✕</td>`;
-                            totalNokLinha++;
-                        } else if (teveOk) {
-                            html += `<td class="ok">✓</td>`;
-                            totalOkLinha++;
-                        } else {
-                            html += `<td>-</td>`;
-                        }
-                    } else {
-                        html += `<td style="background:#f9f9f9; color:#ccc;">-</td>`;
-                    }
-                }
-
-                html += `<td><strong>${totalOkLinha}</strong></td>`;
-                html += `<td><strong style="color: #dc3545;">${totalNokLinha}</strong></td>`;
-                html += `</tr>`;
-            });
-
-            html += '</tbody></table></div>';
-            document.getElementById('tabelaContainer').innerHTML = html;
+    // Agrupa dados por setor (checklistId)
+    const dadosPorSetor = {};
+    dados.forEach(item => {
+        const setor = item.checklistId || item.checklistNome || "Desconhecido";
+        if (!dadosPorSetor[setor]) {
+            dadosPorSetor[setor] = [];
         }
+        dadosPorSetor[setor].push(item);
+    });
+
+    let htmlCompleto = '';
+
+    // Gera uma tabela para cada setor
+    Object.keys(dadosPorSetor).forEach(setor => {
+        const dadosSetor = dadosPorSetor[setor];
+        const itensBase = dadosSetor[0].itens;
+
+        htmlCompleto += `
+            <div style="margin: 30px 0;">
+                <h3 style="color: #1769aa; margin-bottom: 15px;">📋 ${setor}</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th style="text-align: left;">Status dos registros das atividades</th>
+        `;
+
+        // Cabeçalho dos dias
+        for (let dia = 1; dia <= diasNoMes; dia++) {
+            htmlCompleto += `<th>${dia}</th>`;
+        }
+        htmlCompleto += '<th>Total OK</th><th>Total NOK</th></tr></thead><tbody>';
+
+        // Linhas dos itens
+        itensBase.forEach((itemBase, idx) => {
+            htmlCompleto += `<tr>`;
+            htmlCompleto += `<td>${idx + 1}</td>`;
+            
+            const textoPergunta = itemBase.pergunta.length > 50 
+                ? itemBase.pergunta.substring(0, 50) + '...' 
+                : itemBase.pergunta;
+            htmlCompleto += `<td style="text-align:left; font-size:12px;">${textoPergunta}</td>`;
+
+            let totalOkLinha = 0;
+            let totalNokLinha = 0;
+
+            for (let dia = 1; dia <= diasNoMes; dia++) {
+                const dataFormatada = `${mesAno}-${String(dia).padStart(2, '0')}`;
+                const inspecoesDoDia = dadosSetor.filter(d => d.data === dataFormatada);
+                
+                if (inspecoesDoDia.length > 0) {
+                    const teveNok = inspecoesDoDia.some(insp => 
+                        insp.itens[idx] && insp.itens[idx].resultado === "NÃO OK"
+                    );
+                    const teveOk = inspecoesDoDia.some(insp => 
+                        insp.itens[idx] && insp.itens[idx].resultado === "OK"
+                    );
+
+                    if (teveNok) {
+                        htmlCompleto += `<td class="nok">✕</td>`;
+                        totalNokLinha++;
+                    } else if (teveOk) {
+                        htmlCompleto += `<td class="ok">✓</td>`;
+                        totalOkLinha++;
+                    } else {
+                        htmlCompleto += `<td>-</td>`;
+                    }
+                } else {
+                    htmlCompleto += `<td style="background:#f9f9f9; color:#ccc;">-</td>`;
+                }
+            }
+
+            htmlCompleto += `<td><strong>${totalOkLinha}</strong></td>`;
+            htmlCompleto += `<td><strong style="color: #dc3545;">${totalNokLinha}</strong></td>`;
+            htmlCompleto += `</tr>`;
+        });
+
+        htmlCompleto += '</tbody></table></div></div>';
+    });
+
+    document.getElementById('tabelaContainer').innerHTML = htmlCompleto;
+}
 
         function exportarExcel() {
     const dados = window.dadosRelatorio;
