@@ -1,85 +1,81 @@
-
 {
-    "id": "linha-pintura",
-    "nome": "Linha de Pintura",
-    "descricao": "Checklist de controle de qualidade da Linha de Pintura",
-    "versao": 1,
-
-    "perguntas": [
-        {
-            "id": 1,
-            "texto": "Matriz de versatilidade está atualizada e disponível no Posto Focus Factory.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 2,
-            "texto": "Operadores estão treinados.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 3,
-            "texto": "Quant. de Operadores para executar a atividade está adequada conforme matriz de versatilidade.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 4,
-            "texto": "Limpeza, Organização está Conforme Padrão de 5'S",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 5,
-            "texto": "A manutenção produtiva total (MPT), esta sendo seguida e preenchidas corretamente conforme check-lista do MPT",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 6,
-            "texto": "O check-list de manutenções produtiva total (MPT), esta disponível no equipamento",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 7,
-            "texto": "O Check-list de manutenções produtiva total (MPT), está sendo preenchido corretamente",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 8,
-            "texto": "Operadores estão utilizando EPI's de acordo com a Matriz de EPEi's",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 9,
-            "texto": "Produtos NC ou Suspeito está Identificado com Motivo e Responsaveis.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 10,
-            "texto": "Verificar se as IVPs (25 - 107), estão disponíveis na area de trabalho para controle de vida util de gancheiras e protetores.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 11,
-            "texto": "Verificar se a frequência está sendo controladas conforme cronograma das gancheiras e protetores (IVP 109)",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 12,
-            "texto": "Os registros de controle de vida util estão sendo realizados de acordo com a frequencia estabelecida na instrução de trabalho.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 13,
-            "texto": "Verificar se está sendo reportada o descarte das gancheiras e protetores na Folha de Controle de Dispositivos.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 14,
-            "texto": "Verificar se a Instrução Visual 1074 está disponíveis na area de trabalho para controle de descarte de peças que caem da estufa.",
-            "fotoObrigatoria": false
-        },
-        {
-            "id": 15,
-            "texto": "Verificar se o apontamento de peça que cai da estufa aérea está sendo registrado na planilha de sucata (código especifico 9103, peças caídas na estufas).",
-            "fotoObrigatoria": false
-        }
-    ]
+  "nome": "Linha de Pintura",
+  "descricao": "Checklist de inspeção da Linha de Pintura",
+  "perguntas": [
+    {
+      "id": 1,
+      "texto": "Matriz de versatilidade está atualizada e disponível no Posto Focus Factory.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 2,
+      "texto": "Operadores estão treinados.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 3,
+      "texto": "Quant. de Operadores para executar a atividade está adequada conforme matriz de versatilidade.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 4,
+      "texto": "Limpeza, Organização está Conforme Padrão de 5'S",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 5,
+      "texto": "A manutenção produtiva total (MPT),está sendo seguida e preenchidas corretamente conforme check-lista do MPT",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 6,
+      "texto": "O check-list de manutenções produtiva total (MPT),está disponível no equipamento",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 7,
+      "texto": "O Check-list de manutenções produtiva total (MPT),está sendo preenchido corretamente",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 8,
+      "texto": "Operadores estão utilizando EPI's de acordo com a Matriz de EPE's",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 9,
+      "texto": "Produtos NC ou Suspeito está identificado com Motivo e Responsaveis.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 10,
+      "texto": "Verificar se os IVPs (25 - 107), estão disponíveis na area de trabalho para controle de vida util de gancheras e protetores.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 11,
+      "texto": "Verificar se a frequencia está sendo controladas conforme cronograma das gancheras e protetores (IVP 109)",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 12,
+      "texto": "Os registros de controle de vida util estão sendo realizados de acordo com a frequencia estabelecida na instrução de trabalho.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 13,
+      "texto": "Verificar se está sendo reportada o descarte das gancheras e protetores na Folha de Controle de Dispositivos.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 14,
+      "texto": "Verificar se a Instrução Visual 1076 está disponíveis na area de trabalho para controle de descarte de peças que caem da estufa.",
+      "fotoObrigatoria": false
+    },
+    {
+      "id": 15,
+      "texto": "Verificar se o apontamento de peça que cai da estufa aérea está sendo registrado na planilha de sucata (código especifico 9103, peças caídas na estufas).",
+      "fotoObrigatoria": false
+    }
+  ]
 }
