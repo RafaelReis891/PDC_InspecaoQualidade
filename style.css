@@ -29,8 +29,13 @@ body {
     width: 100%;
     max-width: 900px;
     margin: auto;
-    padding: 16px 16px calc(160px + env(safe-area-inset-bottom));
-    padding-bottom: 16px;
+    padding: 16px 16px 120px;
+}
+
+@media (max-width: 600px) {
+    .app {
+        padding: 12px 12px calc(100px + env(safe-area-inset-bottom));
+    }
 }
 
 /* HEADER & MENU */
