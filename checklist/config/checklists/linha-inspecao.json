@@ -24,7 +24,7 @@
     },
     {
       "id": 5,
-      "texto": "A manutenção produtiva total (MPT),está sendo seguida e preenchidas corretamente conforme check-lista do MPT",
+      "texto": "A manutenção produtiva total (MPT),está sendo seguida e preenchidas corretamente conforme check-list do MPT",
       "fotoObrigatoria": false
     },
     {
@@ -64,27 +64,27 @@
     },
     {
       "id": 13,
-      "texto": "Verificar se a Rua da inspeção está sendo inspecionada para peças incompletas, próximo lote para inspeção e espera.",
+      "texto": "Verificar se o fluxo da inspeção está sendo seguido para peças incompletas, próximo lote para inspeção e espera.",
       "fotoObrigatoria": false
     },
     {
       "id": 14,
-      "texto": "Verificar se a instrução IC 022A está disponível no posto de trabalho e de fácil acesso (Posto 100%)",
+      "texto": "Verificar se a instrução IC 023A está disponível no posto de trabalho e de fácil acesso (Posto 100%)",
       "fotoObrigatoria": false
     },
     {
       "id": 15,
-      "texto": "Verificar se a instrução IC 023 A está sendo seguida e adequada para atividade (Posto 100%)",
+      "texto": "Verificar se a instrução IC 023A está sendo seguida e adequada para atividade (Posto 100%)",
       "fotoObrigatoria": false
     },
     {
       "id": 16,
-      "texto": "Verificar se o registro de sequencia está sendo anotado na planilha de controle de FIFO (Qualder)",
+      "texto": "Verificar se o registro de sequencia está sendo anotado na planilha de controle de FIFO (Quadro)",
       "fotoObrigatoria": false
     },
     {
       "id": 17,
-      "texto": "Verificar se esta sendo controlado e registrado conforme planilha do GPI 2",
+      "texto": "Verificar se esta sendo controlado e registrado conforme planilha do GP 12",
       "fotoObrigatoria": false
     },
     {
@@ -99,7 +99,7 @@
     },
     {
       "id": 20,
-      "texto": "Verificar se esta sendo controlado e registrado conforme planilha do GPI 2",
+      "texto": "Verificar se esta sendo controlado e registrado conforme planilha do GP 12",
       "fotoObrigatoria": false
     }
   ]
