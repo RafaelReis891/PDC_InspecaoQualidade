@@ -64,7 +64,7 @@
     },
     {
       "id": 13,
-      "texto": "Verificar se a Rua da inspeção está sendo inspecionada para peças incompletas, próximo lote para inspeção e espera.",
+      "texto": "Verificar se o fluxo da inspeção está sendo seguido para peças incompletas, próximo lote para inspeção e espera.",
       "fotoObrigatoria": false
     },
     {
