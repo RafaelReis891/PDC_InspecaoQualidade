@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1769aa">
+    <title>Controle de Qualidade</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+    <style>
+        /* Estilo visual para quando o botão estiver desativado */
+        .menu-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #f0f2f5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+
+    <!-- CABEÇALHO E MENU -->
+    <header class="header">
+        <div class="header-top">
+            <div>
+                <h1 id="headerTitle" class="header-title">Controle de Qualidade</h1>
+                <p id="headerSubtitle" class="header-subtitle">Checklist de inspeção</p>
+            </div>
+            <button id="menuToggle" class="menu-toggle" type="button" aria-label="Abrir menu">☰</button>
+        </div>
+
+        <!-- MENU DE AÇÕES (Dropdown) -->
+        <div id="actionMenu" class="action-menu">
+            <button id="saveButton" class="menu-action" type="button">
+                <span class="icon">💾</span> <span>Salvar Arquivo Local</span>
+            </button>
+            <button id="loadButton" class="menu-action" type="button">
+                <span class="icon">📂</span> <span>Carregar Arquivo</span>
+            </button>
+            <button id="newButton" class="menu-action new-action" type="button">
+                <span class="icon">🆕</span> <span>Nova Inspeção</span>
+            </button>
+            <!-- 4º BOTÃO: RELATÓRIO MENSAL -->
+            <button id="relatorioButton" class="menu-action" type="button" disabled>
+                <span class="icon">📈</span> <span>Ver Relatório Mensal</span>
+            </button>
+            <button id="logoutButton" class="menu-action" type="button">
+                <span class="icon">🚪</span>
+                <span>Logout</span>
+            </button>     
+        </div>
+    </header>
+
+    <!-- Input oculto para carregar JSON -->
+    <input type="file" id="importFile" accept=".json" style="display: none;">
+
+    <!-- DADOS DA INSPEÇÃO -->
+    <section class="card">
+        <div class="section-title">Dados da inspeção</div>
+        <div class="inspection-data">
+            <div class="field">
+                <label for="checklistSelect">Checklist / Setor</label>
+                <select id="checklistSelect">
+                    <option value="">Selecione o setor</option>
+                    <option value="linha-pintura">Linha de Pintura</option>
+                    <option value="linha-inspecao">Linha de Inspeção</option>
+                    <option value="linha-haste">Linha de Haste</option>
+                    <option value="linha-solda">Linha de Solda</option>
+                    <option value="linha-tubos">Linha de Tubos</option>
+                    <option value="linha-montagem">Linha de Montagem</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="responsavel">Responsável</label>
+                <input id="responsavel" type="text" placeholder="Nome do responsável" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="turno">Turno trabalhado</label>
+                <select id="turno">
+                    <option value="">Selecione o turno</option>
+                    <option value="1º Turno">1º Turno</option>
+                    <option value="2º Turno">2º Turno</option>
+                    <option value="3º Turno">3º Turno</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="lote">Produto / Lote</label>
+                <input id="lote" type="text" placeholder="Ex.: Lote 001" autocomplete="off">
+            </div>
+        </div>
+    </section>
+
+    <!-- PROGRESSO -->
+    <section class="card">
+        <div class="progress-header">
+            <span>Progresso da inspeção</span>
+            <span id="progressText">0 / 0</span>
+        </div>
+        <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+        </div>
+    </section>
+
+    <!-- AVISO -->
+    <div id="warning" class="warning"></div>
+
+    <!-- PERGUNTAS -->
+    <main id="questions"></main>
+
+    <!-- RESULTADO FINAL DO TURNO -->
+    <section id="finalData" class="card final-data">
+        <div class="section-title">Registrar no final do turno</div>
+        <div class="final-grid">
+            <div class="field">
+                <label for="qtdProduzidos">QTD produzidos</label>
+                <input id="qtdProduzidos" type="number" min="0" step="1" placeholder="0">
+            </div>
+            <div class="field">
+                <label for="qtdNaoConformes">QTD Peças Não Conformes</label>
+                <input id="qtdNaoConformes" type="number" min="0" step="1" placeholder="0">
+            </div>
+            <div class="field">
+                <label for="qtdNokAuditoria">QTD NOK Auditoria Processo</label>
+                <input id="qtdNokAuditoria" type="number" min="0" step="1" placeholder="0">
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- BARRA INFERIOR -->
+<div class="bottom-bar">
+    <div class="bottom-buttons">
+        <button id="pdfButton" class="main-button pdf-button" type="button">
+            📄 <span>Gerar PDF</span>
+        </button>
+        <button id="excelButton" class="main-button excel-button" type="button" disabled>
+            📊 <span>Finalizar / Excel</span>
+        </button>
+    </div>
+</div>
+
+<!-- Storage local (IndexedDB) -->
+<script src="storage.js"></script>
+<!-- App principal como Módulo para suportar Firebase -->
+<script type="module" src="app.js"></script>
+
+<!-- Controle de permissão do botão Relatório Mensal e Ação de Logout -->
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const relatorioBtn = document.getElementById("relatorioButton");
+        const logoutBtn = document.getElementById("logoutButton");
+        const sessaoData = localStorage.getItem("usuarioLogado");
+
+        // --- 1. AÇÃO DE LOGOUT ---
+        if (logoutBtn) {
+            logoutBtn.addEventListener("click", () => {
+                // Remove os dados do usuário logado
+                localStorage.removeItem("usuarioLogado");
+                
+                // Limpa todo o storage de sessão se houver
+                sessionStorage.clear();
+
+                // Redireciona para a página de login (ajuste a rota se seu arquivo for login.html)
+                window.location.href = "/"; 
+            });
+        }
+
+        // --- 2. VALIDAÇÃO E NAVEGAÇÃO DO RELATÓRIO MENSAL ---
+        console.log("=== VERIFICAÇÃO DE SESSÃO ===");
+        console.log("Dado no localStorage ('usuarioLogado'):", sessaoData);
+
+        if (sessaoData) {
+            try {
+                const usuarioLogado = JSON.parse(sessaoData);
+
+                // Permite acesso se isAdmin for verdadeiro (booleano ou string)
+                const ehAdmin = usuarioLogado.isAdmin === true || usuarioLogado.isAdmin === "true";
+
+                if (ehAdmin) {
+                    console.log("-> Permissão concedida: Usuário é ADMIN.");
+                    relatorioBtn.disabled = false;
+                    relatorioBtn.title = "Acessar Relatório Mensal";
+                    
+                    // Redirecionamento explícito
+                    relatorioBtn.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        window.location.href = "/relatorio";
+                    });
+                } else {
+                    console.warn("-> Permissão negada: Usuário NÃO é admin.");
+                    relatorioBtn.disabled = true;
+                    relatorioBtn.title = "Acesso restrito apenas a administradores.";
+                }
+            } catch (err) {
+                console.error("Erro ao processar dados da sessão:", err);
+                relatorioBtn.disabled = true;
+            }
+        } else {
+            console.warn("-> Nenhuma sessão encontrada. Redirecionando para login...");
+            relatorioBtn.disabled = true;
+            
+            // Se tentar acessar o checklist sem estar logado, envia para a tela de login
+            window.location.href = "/";
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -2,137 +2,270 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1769aa">
-    <title>Controle de Qualidade</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - PDC</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-    <!-- Excel -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- PDF -->
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .login-card {
+            background: white;
+            width: 100%;
+            max-width: 400px;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-top: 5px solid #1769aa;
+        }
+
+        .header-title-container {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        h1 {
+            color: #1769aa;
+            margin: 0 0 6px 0;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .subtitle-info {
+            font-size: 13px;
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #1769aa;
+            box-shadow: 0 0 0 3px rgba(23, 105, 170, 0.15);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            background: #1769aa;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #0d4f82;
+        }
+
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .feedback-message {
+            display: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .error-message {
+            background-color: #f8d7da;
+            color: #dc3545;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success-message {
+            background-color: #d1e7dd;
+            color: #0f5132;
+            border: 1px solid #badbcc;
+        }
+    </style>
 </head>
 <body>
 
-<div class="app">
-
-    <!-- CABEÇALHO E MENU -->
-    <header class="header">
-        <div class="header-top">
-            <div>
-                <h1 id="headerTitle" class="header-title">Controle de Qualidade</h1>
-                <p id="headerSubtitle" class="header-subtitle">Checklist de inspeção</p>
-            </div>
-            <button id="menuToggle" class="menu-toggle" type="button" aria-label="Abrir menu">☰</button>
+    <div class="login-card">
+        <div class="header-title-container">
+            <h1>LOGIN PDC</h1>
+            <div class="subtitle-info">Acesso ao Sistema de Qualidade</div>
         </div>
 
-        <!-- MENU DE AÇÕES (Dropdown) -->
-        <div id="actionMenu" class="action-menu">
-            <button id="saveButton" class="menu-action" type="button">
-                <span class="icon">💾</span> <span>Salvar Arquivo Local</span>
-            </button>
-            <button id="loadButton" class="menu-action" type="button">
-                <span class="icon">📂</span> <span>Carregar Arquivo</span>
-            </button>
-            <button id="newButton" class="menu-action new-action" type="button">
-                <span class="icon">🆕</span> <span>Nova Inspeção</span>
-            </button>
-        </div>
-    </header>
+        <div id="feedbackMessage" class="feedback-message"></div>
 
-    <!-- Input oculto para carregar JSON -->
-    <input type="file" id="importFile" accept=".json" style="display: none;">
-
-    <!-- DADOS DA INSPEÇÃO -->
-    <section class="card">
-        <div class="section-title">Dados da inspeção</div>
-        <div class="inspection-data">
-            <div class="field">
-                <label for="checklistSelect">Checklist / Setor</label>
-                <select id="checklistSelect">
-                    <option value="">Selecione o setor</option>
-                    <option value="linha-pintura">Linha de Pintura</option>
-                    <option value="linha-inspecao">Linha de Inspeção</option>
-                    <option value="linha-haste">Linha de Haste</option>
-                    <option value="linha-solda">Linha de Solda</option>
-                    <option value="linha-tubos">Linha de Tubos</option>
-                    <option value="linha-montagem">Linha de Montagem</option>
-                </select>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="usuario">Usuário</label>
+                <input type="text" id="usuario" placeholder="Digite seu usuário" required autocomplete="username">
             </div>
-            <div class="field">
-                <label for="responsavel">Responsável</label>
-                <input id="responsavel" type="text" placeholder="Nome do responsável" autocomplete="off">
-            </div>
-            <div class="field">
-                <label for="turno">Turno trabalhado</label>
-                <select id="turno">
-                    <option value="">Selecione o turno</option>
-                    <option value="1º Turno">1º Turno</option>
-                    <option value="2º Turno">2º Turno</option>
-                    <option value="3º Turno">3º Turno</option>
-                </select>
-            </div>
-            <div class="field">
-                <label for="lote">Produto / Lote</label>
-                <input id="lote" type="text" placeholder="Ex.: Lote 001" autocomplete="off">
-            </div>
-        </div>
-    </section>
 
-    <!-- PROGRESSO -->
-    <section class="card">
-        <div class="progress-header">
-            <span>Progresso da inspeção</span>
-            <span id="progressText">0 / 0</span>
-        </div>
-        <div class="progress-bar">
-            <div id="progressFill" class="progress-fill"></div>
-        </div>
-    </section>
-
-    <!-- AVISO -->
-    <div id="warning" class="warning"></div>
-
-    <!-- PERGUNTAS -->
-    <main id="questions"></main>
-
-    <!-- RESULTADO FINAL DO TURNO -->
-    <section id="finalData" class="card final-data">
-        <div class="section-title">Registrar no final do turno</div>
-        <div class="final-grid">
-            <div class="field">
-                <label for="qtdProduzidos">QTD produzidos</label>
-                <input id="qtdProduzidos" type="number" min="0" step="1" placeholder="0">
+            <div class="form-group">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" placeholder="Digite sua senha" required autocomplete="current-password">
             </div>
-            <div class="field">
-                <label for="qtdNaoConformes">QTD Peças Não Conformes</label>
-                <input id="qtdNaoConformes" type="number" min="0" step="1" placeholder="0">
-            </div>
-            <div class="field">
-                <label for="qtdNokAuditoria">QTD NOK Auditoria Processo</label>
-                <input id="qtdNokAuditoria" type="number" min="0" step="1" placeholder="0">
-            </div>
-        </div>
-    </section>
 
-</div>
-
-<!-- BARRA INFERIOR -->
-<div class="bottom-bar">
-    <div class="bottom-buttons">
-        <button id="pdfButton" class="main-button pdf-button" type="button">
-            📄 <span>Gerar PDF</span>
-        </button>
-        <button id="excelButton" class="main-button excel-button" type="button" disabled>
-            📊 <span>Finalizar / Excel</span>
-        </button>
+            <button type="submit" id="btnLogin">Entrar</button>
+        </form>
     </div>
-</div>
 
-<!-- Storage local (IndexedDB) -->
-<script src="storage.js"></script>
-<!-- App principal como Módulo para suportar Firebase -->
-<script type="module" src="app.js"></script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
 
+        const firebaseConfig = {
+            apiKey: "AIzaSyDswGi_UmMiCddQ0Fq_xggkDMsPORtiClc",
+            authDomain: "pdc-monthly.firebaseapp.com",
+            projectId: "pdc-monthly",
+            storageBucket: "pdc-monthly.firebasestorage.app",
+            messagingSenderId: "405073422956",
+            appId: "1:405073422956:web:e77b330bb8a9e02c538649",
+            measurementId: "G-JZB6V2BTQP",
+            databaseURL: "https://pdc-monthly-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const loginForm = document.getElementById('loginForm');
+        const btnLogin = document.getElementById('btnLogin');
+        const feedbackMessage = document.getElementById('feedbackMessage');
+
+        // Se o usuário já tiver uma sessão válida no localStorage, redireciona automaticamente para o Checklist
+        document.addEventListener("DOMContentLoaded", () => {
+            const sessaoData = localStorage.getItem("usuarioLogado");
+            if (sessaoData) {
+                try {
+                    const usuario = JSON.parse(sessaoData);
+                    if (usuario && usuario.usuario) {
+                        window.location.href = '/checklist';
+                    }
+                } catch (e) {
+                    localStorage.removeItem("usuarioLogado");
+                }
+            }
+        });
+
+        function gerarSessionId() {
+            return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const usuarioInput = document.getElementById('usuario').value.trim();
+            const senhaInput = document.getElementById('senha').value.trim();
+
+            ocultarFeedback();
+            btnLogin.disabled = true;
+            btnLogin.innerText = "Verificando...";
+
+            try {
+                const usuariosRef = ref(db, 'login/usuarios');
+                const snapshot = await get(usuariosRef);
+
+                if (snapshot.exists()) {
+                    const usuariosData = snapshot.val();
+                    const listaUsuarios = Object.values(usuariosData);
+
+                    const usuarioEncontrado = listaUsuarios.find(
+                        u => u.usuario && u.usuario.toLowerCase() === usuarioInput.toLowerCase()
+                    );
+
+                    if (!usuarioEncontrado) {
+                        exibirFeedback("Erro: Usuário não encontrado.", "erro");
+                        btnLogin.disabled = false;
+                        btnLogin.innerText = "Entrar";
+                    } else if (usuarioEncontrado.senha !== senhaInput) {
+                        exibirFeedback("Erro: Senha incorreta.", "erro");
+                        btnLogin.disabled = false;
+                        btnLogin.innerText = "Entrar";
+                    } else if (usuarioEncontrado.ativo === false) {
+                        exibirFeedback("Aviso: Usuário inativo. Fale com o administrador.", "erro");
+                        btnLogin.disabled = false;
+                        btnLogin.innerText = "Entrar";
+                    } else {
+                        const sessionId = gerarSessionId();
+
+                        const dadosSessao = {
+                            sessionId: sessionId,
+                            nome: usuarioEncontrado.nome,
+                            usuario: usuarioEncontrado.usuario,
+                            isAdmin: usuarioEncontrado.isAdmin === true,
+                            loginTime: new Date().toISOString()
+                        };
+
+                        localStorage.setItem('usuarioLogado', JSON.stringify(dadosSessao));
+
+                        exibirFeedback(`Sucesso! Bem-vindo, ${usuarioEncontrado.nome}. Redirecionando...`, "sucesso");
+
+                        setTimeout(() => {
+                            window.location.href = '/checklist';
+                        }, 1000);
+                    }
+                } else {
+                    exibirFeedback("Erro: Nenhum usuário cadastrado no banco de dados.", "erro");
+                    btnLogin.disabled = false;
+                    btnLogin.innerText = "Entrar";
+                }
+
+            } catch (error) {
+                console.error("Erro na verificação de login:", error);
+                exibirFeedback("Erro ao conectar com o banco de dados.", "erro");
+                btnLogin.disabled = false;
+                btnLogin.innerText = "Entrar";
+            }
+        });
+
+        function exibirFeedback(mensagem, tipo) {
+            feedbackMessage.innerText = mensagem;
+            feedbackMessage.className = "feedback-message " + (tipo === "sucesso" ? "success-message" : "error-message");
+            feedbackMessage.style.display = 'block';
+        }
+
+        function ocultarFeedback() {
+            feedbackMessage.innerText = "";
+            feedbackMessage.style.display = 'none';
+        }
+    </script>
 </body>
 </html>

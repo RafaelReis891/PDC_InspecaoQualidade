@@ -98,7 +98,7 @@ async function salvarNoFirebase() {
 
     const inspecoesRef = ref(db, 'inspecoes');
     await push(inspecoesRef, dadosParaSalvar);
-}
+}   
 
 // ============================================================
 // INICIALIZAÇÃO
