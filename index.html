@@ -177,7 +177,7 @@
                 try {
                     const usuario = JSON.parse(sessaoData);
                     if (usuario && usuario.usuario) {
-                        window.location.href = '/checklist';
+                        window.location.href = '/PDC_InspecaoQualidade/checklist';
                     }
                 } catch (e) {
                     localStorage.removeItem("usuarioLogado");
@@ -239,7 +239,7 @@
                         exibirFeedback(`Sucesso! Bem-vindo, ${usuarioEncontrado.nome}. Redirecionando...`, "sucesso");
 
                         setTimeout(() => {
-                            window.location.href = '/checklist';
+                            window.location.href = '/PDC_InspecaoQualidade/checklist';
                         }, 1000);
                     }
                 } else {
